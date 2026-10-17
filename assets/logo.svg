@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SkyFocus">
+  <defs>
+    <linearGradient id="sfBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2a47"/>
+      <stop offset="1" stop-color="#0b1424"/>
+    </linearGradient>
+    <linearGradient id="sfTrail" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#f4a640" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f4a640"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#sfBg)"/>
+  <!-- focus ring with an opening -->
+  <path d="M44.5 15.8A21 21 0 1 0 52.6 36" fill="none" stroke="#9fc4ff" stroke-opacity=".35" stroke-width="3" stroke-linecap="round"/>
+  <!-- contrail sweeping through the ring -->
+  <path d="M14 46C24 40 36 30 46 18" fill="none" stroke="url(#sfTrail)" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="3" fill="#f4a640"/>
+  <!-- plane -->
+  <g transform="translate(40.5 9.5) rotate(40 12 12) scale(.62)">
+    <path fill="#ffffff" d="M12 2c.9 0 1.5 1 1.5 2.2V9l7.5 4.5v2L13.5 13v4.6l2.5 1.9V21l-4-1.2L8 21v-1.5l2.5-1.9V13L3 15.5v-2L10.5 9V4.2C10.5 3 11.1 2 12 2z"/>
+  </g>
+</svg>

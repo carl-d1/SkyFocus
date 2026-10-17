@@ -1,0 +1,12 @@
+# OS / editor clutter
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+.vscode/
+
+# Local backups exported from the app
+skyfocus-backup-*.json
+
+# Local tooling
+.claude/
