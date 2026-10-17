@@ -54,18 +54,18 @@
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .22 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
   --paper-shadow: 0 1px 1px rgba(0, 0, 0, .35), 0 8px 16px rgba(0, 0, 0, .22), 0 24px 48px rgba(0, 0, 0, .28);
 
-  /* ---------- glass ---------- */
-  --glass-tint: 26 28 32;
-  --glass-alpha: .38;
-  --glass-blur: 16px;
-  --glass-sat: 1.7;
-  --glass-bright: 1.04;
+  /* ---------- glass: variant C "Smoked" (chosen in the glass lab) ---------- */
+  --glass-tint: 10 11 14;
+  --glass-alpha: .56;
+  --glass-blur: 14px;
+  --glass-sat: 1.5;
+  --glass-bright: .95;
   --glass-text: #f3f0e8;
   --glass-muted: rgba(243, 240, 232, .62);
   --glass-rule: rgba(255, 255, 255, .12);
   --glass-fill: rgba(255, 255, 255, .07);
   --glass-fill-2: rgba(255, 255, 255, .13);
-  --glass-well: rgba(0, 0, 0, .2);
+  --glass-well: rgba(0, 0, 0, .3);
   --glass-hi: rgba(255, 255, 255, .5);
   --glass-shadow: 0 16px 32px rgba(0, 0, 0, .3), 0 2px 4px rgba(0, 0, 0, .2);
   --r-glass: 20px;
@@ -127,31 +127,18 @@
 
 /* Adaptive glass: views mark what sits behind the glass. */
 [data-backdrop="bright"] {
-  --glass-tint: 16 18 22;
-  --glass-alpha: .5;
+  --glass-tint: 10 11 14;
+  --glass-alpha: .64;
   --glass-text: #f6f3ec;
   --glass-muted: rgba(246, 243, 236, .7);
   --glass-rule: rgba(255, 255, 255, .14);
 }
-[data-backdrop="dark"] { --glass-tint: 52 56 62; --glass-alpha: .3; }
+[data-backdrop="dark"] { --glass-tint: 14 15 18; --glass-alpha: .52; }
 [data-theme="light"] [data-backdrop="dark"] { --glass-tint: 250 247 240; --glass-alpha: .55; }
 
-/* Glass variant C "Smoked", chosen in the glass lab. Screens opt in with body.mat-smoke while it rolls out. */
-html:not([data-theme="light"]) body.mat-smoke {
-  --glass-tint: 10 11 14;
-  --glass-alpha: .56;
-  --glass-blur: 14px;
-  --glass-sat: 1.5;
-  --glass-bright: .95;
-  --glass-well: rgba(0, 0, 0, .3);
-  --glass-text: #f3f0e8;
-  --glass-muted: rgba(243, 240, 232, .62);
-  --glass-rule: rgba(255, 255, 255, .12);
-}
-html[data-gfx="low"]:not([data-theme="light"]) body.mat-smoke { --glass-alpha: .74; --glass-blur: 8px; }
-
 [data-gfx="balanced"] { --glass-blur: 12px; }
-[data-gfx="low"] { --glass-blur: 8px; --glass-alpha: .7; }
+[data-gfx="low"] { --glass-blur: 8px; --glass-alpha: .74; }
+[data-gfx="low"] [data-backdrop] { --glass-alpha: .74; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { font-size: 15px; -webkit-text-size-adjust: 100%; }

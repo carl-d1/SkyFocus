@@ -62,7 +62,6 @@
 
   SF.views.book = {
     stage: true,
-    smoke: true,
     mount: function (root) {
       var S = SF.store.state;
       var sel = {
