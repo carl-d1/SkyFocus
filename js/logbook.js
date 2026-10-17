@@ -1,4 +1,4 @@
-/* Logbook (paper ledger with filters) and Passport (stamps by country). */
+/* Logbook (glass ledger with filters) and Passport (stamps by country). */
 (function () {
   var SF = (window.SF = window.SF || {});
   var ui = SF.ui;
@@ -59,7 +59,7 @@
         "</div>", "");
       var $ = function (id) { return document.getElementById(id); };
       root.innerHTML =
-        '<section class="paper ledger" aria-label="Flight log">' +
+        '<section class="glass ledger" aria-label="Flight log">' +
         '<div class="ledger-head"><div><p class="label">' + SF.esc((S.profile.name || "").toUpperCase()) + " · " + SF.esc(S.profile.memberNo || "") + "</p><h1>Flight log</h1></div><span class=\"form-no\">FORM SF-20</span></div>" +
         '<dl class="totals">' +
         "<div><dt>Flights</dt><dd>" + t.flights + "</dd></div>" +
@@ -124,7 +124,7 @@
       var stamps = SF.store.state.stamps.slice(-8).reverse();
       $("ledgerFoot").innerHTML = '<dl class="totals" style="margin:0;grid-template-columns:repeat(2,minmax(0,1fr))">' +
         "<div><dt>Countries</dt><dd>" + t.countries + "</dd></div><div><dt>Continents</dt><dd>" + t.continents + "/6</dd></div></dl>" +
-        '<div class="stamp-row" aria-label="Recent passport stamps">' + (stamps.length ? stamps.map(function (x) { return SF.stampSVG(x, 72); }).join("") : '<span class="form-no">NO STAMPS ISSUED</span>') + "</div>";
+        '<div class="stamp-row" aria-label="Recent passport stamps">' + (stamps.length ? stamps.map(function (x) { return SF.stampSVG(x, 72, { onDark: true }); }).join("") : '<span class="form-no">NO STAMPS ISSUED</span>') + "</div>";
       render();
     },
     unmount: function () { }
@@ -140,11 +140,11 @@
       var countries = Object.keys(byCountry).sort();
       ui.topbar(ui.topbarTitle("Passport"), '<div class="pp-sum"><span><b>' + t.cities + "</b> CITIES</span><span><b>" + t.countries + "</b> COUNTRIES</span><span><b>" + t.continents + "</b>/6 CONTINENTS</span></div>");
       root.innerHTML =
-        '<section class="paper passport" aria-label="Passport pages">' +
+        '<section class="glass passport" aria-label="Passport pages">' +
         '<div class="passport-head"><span class="label">' + SF.esc((SF.store.state.profile.name || "").toUpperCase()) + " · " + SF.esc(SF.store.state.profile.memberNo || "") + '</span><span class="form-no">VISAS / ENTRIES</span></div>' +
         (countries.length ? '<div class="pp-book">' + countries.map(function (c) {
           return '<div class="pp-country"><h2>' + SF.esc(c) + " <small>" + byCountry[c].length + "</small></h2><div class=\"pp-grid\">" +
-            byCountry[c].map(function (s) { return '<figure class="pp-stamp">' + SF.stampSVG(s, 130) + "<figcaption>" + SF.esc(s.city) + "<small>" + SF.fmt.date(new Date(s.date)) + "</small></figcaption></figure>"; }).join("") +
+            byCountry[c].map(function (s) { return '<figure class="pp-stamp">' + SF.stampSVG(s, 130, { onDark: true }) + "<figcaption>" + SF.esc(s.city) + "<small>" + SF.fmt.date(new Date(s.date)) + "</small></figcaption></figure>"; }).join("") +
             "</div></div>";
         }).join("") + "</div>"
           : '<div class="empty"><p class="mono">NO ENTRIES. LAND AT A NEW CITY TO RECEIVE A STAMP. DIVERTED FLIGHTS ARE NOT STAMPED.</p><a class="btn" href="#/book">Book flight</a></div>') +

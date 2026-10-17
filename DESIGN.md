@@ -9,7 +9,7 @@ SkyFocus uses three materials, each with a fixed job. They never stand in for ea
 ### 1. Glass (`.glass`)
 Glass is the main UI layer. It floats over the map, the sky and the backdrops.
 
-- **Used for:** the nav rail, top bar items, the flight chip, map controls, the instrument cluster, the booking sheet, settings sheets, modals and the timer.
+- **Used for:** the nav rail, top bar items, the flight chip, map controls, the instrument cluster, the booking sheet, settings sheets, the logbook and passport sheets, modals and the timer.
 - **Variant:** C "Smoked", chosen in the glass lab. Dark tint, medium blur, strongest text contrast.
 - **Rendering:** backdrop blur and saturation, plus SVG displacement refraction where Chromium supports it. Each piece also gets a light rim, a specular highlight along the top edge that follows the pointer, and a soft inner shadow.
 - **Tint adapts to the backdrop.** A view marks what is behind it with `data-backdrop="bright"` (sky, light imagery) or `data-backdrop="dark"` (night map), so text stays readable.
@@ -25,7 +25,7 @@ Cockpit is the Flight Ops identity carried into the glass. It is a style for con
 - **One signal colour (#FFC400)**, used only for active and important states. Muted green and red are used for landed and diverted status only.
 
 ### 3. Paper (`.paper`)
-Paper is for documents only: the boarding pass, logbook pages, passport, membership card, stamps, and the arrival and check-in forms.
+Paper is for documents only: the boarding pass, membership card, and the arrival and check-in forms. The logbook and passport are glass sheets, so they match the rest of the app; stamps shown on glass use a light ink (`SF.stampSVG(s, size, { onDark: true })`).
 
 - Paper items are physical objects resting on the scene, with their own shadow, edge and grain.
 - Paper is square-cornered (2px), with ruled boxes, form numbers and printed type.

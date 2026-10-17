@@ -200,25 +200,28 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
 .filters select, .filters input { height: 32px; width: auto; }
 .filters select { padding-right: var(--s-6); }
 .ledger { display: flex; flex-direction: column; padding: var(--s-6); min-height: 0; overflow: auto; }
-.ledger-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-4); padding-bottom: var(--s-3); border-bottom: 2px solid var(--paper-ink); }
+.ledger-head, .passport-head { border-bottom-color: var(--glass-text) !important; }
+.log-table th { border-bottom-color: var(--glass-muted) !important; }
+.log-table tbody tr:focus-visible { box-shadow: inset 3px 0 0 var(--signal) !important; }
+.ledger-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-4); padding-bottom: var(--s-3); border-bottom: 2px solid var(--glass-rule); }
 .ledger-head h1 { text-transform: uppercase; letter-spacing: .02em; margin-top: var(--s-1); }
-.totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 1px solid var(--paper-rule); margin: 0 0 var(--s-5); }
-.totals > div { padding: var(--s-2) var(--s-3) var(--s-3); border-right: 1px solid var(--paper-rule); border-bottom: 1px solid var(--paper-rule); }
-.totals dt { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); }
+.totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 1px solid var(--glass-rule); margin: 0 0 var(--s-5); }
+.totals > div { padding: var(--s-2) var(--s-3) var(--s-3); border-right: 1px solid var(--glass-rule); border-bottom: 1px solid var(--glass-rule); }
+.totals dt { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--glass-muted); }
 .totals dd { margin: var(--s-1) 0 0; font-family: var(--font-mono); font-size: 28px; font-weight: 600; line-height: 1; }
 .log-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.log-table th { text-align: left; font-family: var(--font-sign); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); padding: var(--s-2) var(--s-3); border-bottom: 2px solid var(--paper-ink); white-space: nowrap; }
-.log-table td { height: 40px; padding: 0 var(--s-3); border-bottom: 1px solid var(--paper-rule); vertical-align: middle; white-space: nowrap; }
+.log-table th { text-align: left; font-family: var(--font-sign); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--glass-muted); padding: var(--s-2) var(--s-3); border-bottom: 2px solid var(--glass-rule); white-space: nowrap; }
+.log-table td { height: 40px; padding: 0 var(--s-3); border-bottom: 1px solid var(--glass-rule); vertical-align: middle; white-space: nowrap; }
 .log-table td:first-child, .log-table th:first-child { padding-left: 0; }
 .log-table .num { text-align: right; width: 1%; }
 .log-table .col-task { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .log-table .col-status { width: 1%; padding-left: var(--s-5); padding-right: 0; }
 .log-table .mono { font-size: 13px; }
 .log-table tbody tr[data-id] { cursor: pointer; transition: background .12s; }
-.log-table tbody tr[data-id]:hover, .log-table tbody tr[data-id]:focus-visible { background: rgba(255, 196, 0, .16); }
-.log-table tbody tr:focus-visible { box-shadow: inset 3px 0 0 var(--paper-ink); }
+.log-table tbody tr[data-id]:hover, .log-table tbody tr[data-id]:focus-visible { background: var(--glass-fill); }
+.log-table tbody tr:focus-visible { box-shadow: inset 3px 0 0 var(--glass-rule); }
 .log-table tr.blank td { color: transparent; }
-.empty-cell { padding: var(--s-5) 0 !important; height: auto !important; color: var(--paper-muted); font-family: var(--font-mono); font-size: 13px; }
+.empty-cell { padding: var(--s-5) 0 !important; height: auto !important; color: var(--glass-muted); font-family: var(--font-mono); font-size: 13px; }
 .ledger-foot { margin-top: auto; padding-top: var(--s-5); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-5); align-items: end; }
 .ledger-foot .stamp-row { display: flex; gap: var(--s-3); overflow: hidden; }
 .ledger-foot .stamp-row .stamp { width: 72px; flex: none; }
@@ -237,15 +240,15 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
 .pp-sum { display: flex; gap: var(--s-5); font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
 .pp-sum b { color: var(--text); font-size: 20px; font-weight: 600; }
 .passport { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
-.passport-head { display: flex; justify-content: space-between; align-items: baseline; padding: var(--s-5) var(--s-6) var(--s-3); border-bottom: 2px solid var(--paper-ink); }
+.passport-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 var(--s-6); padding: var(--s-5) 0 var(--s-3); border-bottom: 2px solid var(--glass-rule); }
 .pp-book { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); }
-.pp-country { padding: var(--s-5) var(--s-6); border-right: 1px dashed var(--paper-rule); border-bottom: 1px solid var(--paper-rule); }
+.pp-country { padding: var(--s-5) var(--s-6); border-right: 1px dashed var(--glass-rule); border-bottom: 1px solid var(--glass-rule); }
 .pp-country h2 { display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: var(--s-3); }
-.pp-country h2 small { font-family: var(--font-mono); font-size: 12px; color: var(--paper-muted); letter-spacing: 0; }
+.pp-country h2 small { font-family: var(--font-mono); font-size: 12px; color: var(--glass-muted); letter-spacing: 0; }
 .pp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: var(--s-3); }
 .pp-stamp { margin: 0; display: grid; justify-items: center; gap: var(--s-1); text-align: center; font-family: var(--font-sign); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 13px; }
 .pp-stamp .stamp { width: 136px; }
-.pp-stamp small { display: block; font-family: var(--font-mono); color: var(--paper-muted); font-weight: 400; letter-spacing: 0; font-size: 11px; text-transform: none; }
+.pp-stamp small { display: block; font-family: var(--font-mono); color: var(--glass-muted); font-weight: 400; letter-spacing: 0; font-size: 11px; text-transform: none; }
 .passport .empty { flex: 1; }
 
 /* =========================================================

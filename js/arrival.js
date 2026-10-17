@@ -16,10 +16,22 @@
     return pts.join(" ");
   }
 
-  SF.stampSVG = function (s, size) {
+  // Mix an ink towards white so the same stamp reads on dark glass.
+  function lighten(hex, k) {
+    var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    function m(c) { return Math.round(c + (255 - c) * k); }
+    return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
+  }
+
+  // opts.onDark: light ink for glass screens (logbook, passport); default dark ink for paper.
+  SF.stampSVG = function (s, size, opts) {
     size = size || 150;
+    opts = opts || {};
     var hc = SF.hash(s.cc || s.country), hi = SF.hash(s.iata);
     var ink = INKS[hc % INKS.length], shape = SHAPES[(hc >> 4) % SHAPES.length];
+    if (opts.onDark) ink = lighten(ink, .62);
+    // fewer ink voids on dark glass, so the stamp stays legible
+    var speck = opts.onDark ? "0 0 0 -1.5 1.55" : "0 0 0 -2.4 1.75";
     var rot = ((hi % 25) - 12);
     var dash = ["", "5 3", "2 3"][(hi >> 3) % 3];
     var fid = "ink-" + s.iata + "-" + Math.random().toString(36).slice(2, 6);
@@ -72,12 +84,12 @@
       text = t(74, 12, 2, country, 104) + t(112, 34, 2, s.iata, 110, true) + t(132, 11, 1, city, 96) + t(148, 11, 1, date, 80);
       plane = "";
     }
-    return '<svg class="stamp" viewBox="-8 -8 216 216" width="' + size + '" height="' + size + '" role="img" aria-label="Passport stamp: ' + SF.esc(s.city) + ", " + SF.esc(s.country) + '">' +
+    return '<svg class="stamp' + (opts.onDark ? " on-dark" : "") + '" viewBox="-8 -8 216 216" width="' + size + '" height="' + size + '" role="img" aria-label="Passport stamp: ' + SF.esc(s.city) + ", " + SF.esc(s.country) + '">' +
       '<filter id="' + fid + '" x="-5%" y="-5%" width="110%" height="110%">' +
       '<feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="' + (hi % 97) + '" result="w"/>' +
       '<feDisplacementMap in="SourceGraphic" in2="w" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d"/>' +
       '<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="' + (hi % 89) + '" result="n"/>' +
-      '<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.75" result="m"/>' +
+      '<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  ' + speck + '" result="m"/>' +
       '<feComposite in="d" in2="m" operator="in"/></filter>' +
       '<g transform="rotate(' + rot + ' 100 100)" filter="url(#' + fid + ')" fill="none" stroke="' + ink + '" font-family="JetBrains Mono, Consolas, monospace">' +
       outer + inner + '<g fill="' + ink + '" stroke="none">' + text + "</g>" + plane + "</g></svg>";

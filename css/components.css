@@ -342,6 +342,7 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
    STAMPS
    ========================================================= */
 .stamp { overflow: visible; mix-blend-mode: multiply; width: 100%; height: auto; }
+.stamp.on-dark { mix-blend-mode: normal; opacity: .92; }
 .stamp-wrap { display: grid; place-items: center; padding: var(--s-4); }
 .stamp-wrap .stamp { width: min(100%, 240px); }
 .stamp-wrap.fresh .stamp { animation: stampThud .26s .2s cubic-bezier(.6, 0, .9, .4) both; }
