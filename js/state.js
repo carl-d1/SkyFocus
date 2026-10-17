@@ -24,6 +24,8 @@
       currentAirport: "MEL",
       settings: {
         defaultDuration: 25,
+        bookingMode: "time",
+        graphics: "high",
         breaks: [5, 10, 15],
         units: "km",
         clock24: true,
@@ -43,6 +45,7 @@
       tags: DEFAULT_TAGS.map(function (t) { return Object.assign({}, t); }),
       flights: [],
       favourites: [],
+      recentRoutes: [],
       activeFlight: null,
       stamps: [],
       achievements: {},

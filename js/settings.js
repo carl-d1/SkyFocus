@@ -28,6 +28,7 @@
           "</section>" +
 
           '<section class="panel set-sec"><h2>' + SF.icon("clock") + "Focus</h2>" +
+          '<div class="field"><span>Booking mode</span>' + seg("booking", s.bookingMode, [["time", "Pick my time"], ["destination", "Pick my destination"]]) + "</div>" +
           '<label class="field"><span>Default focus length (min)</span><input type="number" id="sDur" min="5" max="600" step="5" value="' + s.defaultDuration + '"></label>' +
           '<div class="field"><span>Layover lengths (min)</span><div class="inline-row">' + s.breaks.map(function (b, i) {
             return '<input type="number" class="short" data-break="' + i + '" min="1" max="60" value="' + b + '" aria-label="Layover option ' + (i + 1) + '">';
@@ -55,6 +56,9 @@
               '<button class="icon-btn" data-edit="' + t.id + '" aria-label="Edit ' + SF.esc(t.name) + '">' + SF.icon("pen") + "</button>" +
               (t.builtin ? "" : '<button class="icon-btn" data-del="' + t.id + '" aria-label="Delete ' + SF.esc(t.name) + '">' + SF.icon("trash") + "</button>") + "</li>";
           }).join("") + '</ul><button class="btn btn-ghost small" id="addTag">' + SF.icon("plus") + "<span>New tag</span></button></section>" +
+
+          '<section class="panel set-sec" id="shortcuts"><h2>' + SF.icon("keyboard") + 'Keyboard shortcuts</h2><dl class="kbd-list">' +
+          ui.SHORTCUTS.map(function (k) { return "<dt><kbd>" + k[0] + "</kbd></dt><dd>" + k[1] + "</dd>"; }).join("") + "</dl></section>" +
 
           '<section class="panel set-sec"><h2>' + SF.icon("download") + "Your data</h2>" +
           '<p class="muted">Everything is stored in this browser only' + (SF.isFile ? " (file mode, separate from the start.bat version)" : "") + ".</p>" +
@@ -121,6 +125,7 @@
               if (name === "units") s.settings.units = v;
               if (name === "clock") s.settings.clock24 = v === "24";
               if (name === "strict") s.settings.strictness = v;
+              if (name === "booking") s.settings.bookingMode = v;
             }, true);
           };
         });

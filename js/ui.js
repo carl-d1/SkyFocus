@@ -61,6 +61,8 @@
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
     home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    ticket: '<path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4z"/><path d="M15 6v2M15 11v2M15 16v2"/>',
+    refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'
   };
   SF.icon = function (name, cls) {
@@ -149,9 +151,7 @@
         return '<li><a href="#/' + n.route + '" data-route="' + n.route + '" aria-label="' + n.label + '" title="' + n.label + '">' + SF.icon(n.icon) + "<span>" + n.label + "</span></a></li>";
       }).join("") + "</ul>" +
       '<div class="nav-flight" id="navFlight" hidden></div>' +
-      '<div class="nav-foot"><div class="nav-goal" id="navGoal"></div>' +
-      '<button class="btn-ghost small" id="shortcutsBtn" type="button" aria-label="Keyboard shortcuts">' + SF.icon("keyboard") + "<span>Shortcuts</span></button></div>";
-    ui.$("#shortcutsBtn").addEventListener("click", ui.showShortcuts);
+      '<div class="nav-foot"><div class="nav-goal" id="navGoal"></div></div>';
   };
 
   ui.updateNav = function () {
@@ -394,7 +394,7 @@
   };
 
   /* ---------- shortcuts ---------- */
-  var SHORTCUTS = [
+  var SHORTCUTS = ui.SHORTCUTS = [
     ["Space", "Hold / resume the flight"],
     ["M", "Cycle map modes"],
     ["W", "Toggle window view"],

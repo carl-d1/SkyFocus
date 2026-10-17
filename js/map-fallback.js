@@ -89,7 +89,9 @@
         return { x: pos.lon - span / 2, y: -pos.lat - hh / 2, w: span, h: hh };
       }
       var xs = route.pts.map(function (p) { return p.lon; }), ys = route.pts.map(function (p) { return -p.lat; });
-      return fit(Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys), opts.pad || 0.35);
+      var t = fit(Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys), opts.pad || 0.35);
+      if (opts.offsetX) t.x -= t.w * opts.offsetX; // keep the route clear of a side sheet
+      return t;
     }
     function applyVB() {
       svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
@@ -149,9 +151,15 @@
       var d = poly.map(function (p, i) { return (i ? "L" : "M") + p[0] + " " + -p[1]; }).join("") + "Z";
       [-360, 0, 360].forEach(function (off) { el("path", { d: d, transform: "translate(" + off + " 0)" }, night); });
     }
+    var drawT = 1, drawRaf = null;
     function drawRoute() {
       if (!route) { remain.setAttribute("d", ""); flown.setAttribute("d", ""); planeG.style.display = "none"; return; }
       var n = route.pts.length - 1;
+      if (drawT < 1) {
+        remain.setAttribute("d", pathFrom(route.pts.slice(0, Math.max(2, Math.round(drawT * n) + 1))));
+        flown.setAttribute("d", "");
+        return;
+      }
       var idx = Math.max(0, Math.min(n, Math.round(progress * n)));
       var fl = route.pts.slice(0, idx + 1);
       if (pos) fl = fl.concat([pos]);
@@ -161,7 +169,8 @@
     }
 
     var api = {
-      setRoute: function (from, to) {
+      setRoute: function (from, to, ro) {
+        ro = ro || {};
         var pts = SF.geo.arcPoints(from, to, 128);
         var xs = pts.map(function (p) { return p.lon; });
         route = { from: from, to: to, pts: pts, spanLon: Math.max.apply(null, xs) - Math.min.apply(null, xs) };
@@ -171,12 +180,26 @@
           { lat: to.lat, lon: to.lon, label: to.iata, cls: "m-to", px: 4.5 }
         ];
         drawMarkers();
-        drawRoute();
         planeG.style.display = opts.showPlane === false ? "none" : "";
+        if (drawRaf) cancelAnimationFrame(drawRaf);
+        var animate = ro.animate && !(SF.ui && SF.ui.reducedMotion());
+        drawT = animate ? 0 : 1;
         api.setProgress(0);
-        refreshCamera(true);
+        if (!animate) { refreshCamera(true); svg.classList.add("arrived"); return; }
+        // Reveal: pan to the route, then draw the arc, then pulse the destination.
+        svg.classList.remove("arrived");
+        refreshCamera(false);
+        var t0 = performance.now() + 250, dur = 900;
+        (function step(now) {
+          if (destroyed) return;
+          var k = Math.max(0, Math.min(1, (now - t0) / dur));
+          drawT = 1 - Math.pow(1 - k, 3);
+          drawRoute();
+          if (k < 1) drawRaf = requestAnimationFrame(step);
+          else { drawT = 1; drawRoute(); svg.classList.add("arrived"); }
+        })(performance.now());
       },
-      clearRoute: function () { route = null; markers = []; drawMarkers(); drawRoute(); refreshCamera(true); },
+      clearRoute: function () { if (drawRaf) cancelAnimationFrame(drawRaf); drawT = 1; route = null; markers = []; drawMarkers(); drawRoute(); refreshCamera(true); },
       // frac = fraction of route distance flown
       setProgress: function (frac) {
         if (!route) return;
