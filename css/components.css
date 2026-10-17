@@ -115,6 +115,8 @@
 .chip:active { transform: scale(.94, .88); }
 .chip.on { background: var(--signal); color: var(--signal-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6); }
 .chip .icon { width: 16px; height: 16px; }
+.chip-input input { -moz-appearance: textfield; appearance: textfield; }
+.chip-input input::-webkit-outer-spin-button, .chip-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .chip-input input { width: 100%; min-width: 0; height: 100%; background: transparent; border: 0; padding: 0; outline: none; box-shadow: none !important; text-align: center; font-family: var(--font-mono); font-size: 13px; color: inherit; }
 .chip-input input::placeholder { color: inherit; opacity: .7; text-transform: uppercase; font-family: var(--font-sign); letter-spacing: .05em; font-size: 13px; }
 .tag-chip .icon { color: var(--tag); }
@@ -365,26 +367,35 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
 [data-theme="light"] .atlas-plane path:not(.atlas-plane-shadow) { fill: #1d1c19; }
 
 /* =========================================================
-   SEAT MAP: scales with its panel
+   SEAT MAP: cabin overview strip plus your class, enlarged
    ========================================================= */
-.seatmap { display: flex; min-height: 0; }
-.cabin { flex: 1; display: flex; align-items: stretch; min-width: 0; }
-.cabin-nose { width: 24px; border-radius: 32px 0 0 32px; background: var(--glass-fill); box-shadow: inset 0 0 0 1px var(--glass-rule); }
-.cabin-body { flex: 1; min-width: 0; display: grid; gap: 2px; padding: var(--s-1) var(--s-2) var(--s-1) var(--s-1); border-radius: 0 var(--s-3) var(--s-3) 0; background: var(--glass-fill); box-shadow: inset 0 0 0 1px var(--glass-rule); }
-.band-row, .seat-row, .row-nums { display: grid; grid-template-columns: 12px repeat(30, minmax(0, 1fr)); gap: 2px; align-items: stretch; }
-.band-label { font-family: var(--font-sign); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--glass-muted); border-bottom: 1px solid var(--glass-rule); padding-bottom: 2px; white-space: nowrap; overflow: hidden; }
-.band-label.on { color: var(--glass-text); border-bottom: 2px solid var(--tag); }
-.col-label { font-family: var(--font-mono); font-size: 9px; color: var(--glass-muted); display: grid; place-items: center; }
-.aisle { height: 8px; }
-.row-nums span { font-family: var(--font-mono); font-size: 9px; color: var(--glass-muted); text-align: center; }
-.seat { min-width: 0; aspect-ratio: 1 / 1.15; padding: 0; border: 0; border-radius: 3px 3px 1px 1px; transition: transform .25s var(--spring), background .15s; }
-.seat.free { background: color-mix(in srgb, var(--tag) 45%, transparent); }
-.seat.free:hover { transform: scale(1.2); background: var(--tag); }
-.seat.sel { background: var(--signal); box-shadow: 0 0 0 2px var(--glass-text); }
-.seat.taken { background: rgba(255, 255, 255, .1); cursor: not-allowed; }
-.seat.other { background: rgba(255, 255, 255, .04); cursor: not-allowed; }
-[data-theme="light"] .seat.taken { background: rgba(29, 28, 25, .14); }
-[data-theme="light"] .seat.other { background: rgba(29, 28, 25, .05); }
+.seatmap { display: grid; gap: var(--s-3); }
+.cabin-strip { display: flex; gap: 2px; height: 12px; align-items: stretch; }
+.strip-nose { width: 16px; border-radius: 12px 0 0 12px; background: var(--glass-fill-2); }
+.strip-seg { border-radius: 2px; background: color-mix(in srgb, var(--tag) 22%, transparent); }
+.strip-seg.on { background: var(--tag); box-shadow: 0 0 0 2px var(--glass-text); }
+.seat-zoom { display: grid; gap: var(--s-1); padding: var(--s-2) var(--s-3); border-radius: var(--r-glass-sm); background: var(--glass-well); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .3), inset 0 0 0 1px var(--glass-rule); }
+.seat-zoom { --seat-h: clamp(20px, calc((100vh - 560px) / 9), 36px); }
+.sz-row { display: grid; grid-template-columns: 16px repeat(var(--rows), minmax(0, 40px)); gap: var(--s-1); justify-content: space-between; align-items: center; }
+.sz-nums span, .sz-col { font-family: var(--font-mono); font-size: 11px; color: var(--glass-muted); text-align: center; }
+.sz-aisle { display: grid; place-items: center; height: 16px; }
+.sz-aisle span { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; color: var(--glass-muted); opacity: .6; }
+.seat {
+  min-width: 0; height: var(--seat-h, 32px); padding: 0; border: 0; border-radius: 8px 8px 4px 4px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--signal-ink);
+  transition: transform .25s var(--spring), background .15s, box-shadow .15s;
+}
+.seat.free { background: color-mix(in srgb, var(--tag) 40%, transparent); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tag) 70%, transparent); }
+.seat.free:hover { transform: translateY(-2px); background: color-mix(in srgb, var(--tag) 70%, transparent); }
+.seat.sel { background: var(--signal); box-shadow: inset 0 -3px 0 #c99800, 0 0 0 2px var(--glass-text); }
+.seat.taken { background: var(--glass-fill); box-shadow: inset 0 0 0 1px var(--glass-rule); cursor: not-allowed; }
+@media (max-height: 800px) { .seat-legend { display: none !important; } }
+.seat-legend { display: flex; gap: var(--s-4); font-family: var(--font-sign); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--glass-muted); }
+.seat-legend span { display: inline-flex; align-items: center; gap: var(--s-1); }
+.lg { width: 12px; height: 12px; border-radius: 3px; }
+.lg.free { background: color-mix(in srgb, var(--tag) 40%, transparent); }
+.lg.sel { background: var(--signal); }
+.lg.taken { background: var(--glass-fill-2); box-shadow: inset 0 0 0 1px var(--glass-rule); }
 
 /* =========================================================
    CHECKLIST

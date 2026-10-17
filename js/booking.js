@@ -62,6 +62,7 @@
 
   SF.views.book = {
     stage: true,
+    smoke: true,
     mount: function (root) {
       var S = SF.store.state;
       var sel = {
@@ -92,11 +93,12 @@
         '<div id="modePanel"></div>' +
         '<label class="field row"><span class="label">Task</span><input id="taskInput" maxlength="80" placeholder="What are you working on?"></label>' +
         '<div class="field row"><span class="label">Tag</span><div class="tag-grid" id="tagChips"></div></div>' +
-        '<div class="seat-field"><span class="label seat-head">Seat <b id="seatLabel" class="mono"></b></span><div class="seatmap" id="seatMap"></div></div>' +
         "</div>" +
         '<footer class="sheet-foot"><button class="btn btn-signal btn-lg block" id="printPass" disabled>' + SF.icon("ticket") + "<span>Print boarding pass</span></button></footer>" +
         "</section>" +
-        '<aside class="book-side"><div class="glass dest-card" id="destCard" aria-live="polite"></div></aside>' +
+        '<aside class="book-side"><div class="glass dest-card" id="destCard" aria-live="polite"></div>' +
+        '<section class="glass seat-card" aria-label="Seat selection"><div class="seat-head"><span class="label">Seat</span><b id="seatLabel" class="readout readout-sm"></b></div><div class="seatmap" id="seatMap"></div></section>' +
+        "</aside>" +
         "</div>";
 
       var $ = function (id) { return document.getElementById(id); };
@@ -308,28 +310,31 @@
             ["A", "F", "C", "D", "B", "E"].some(function (c) { if (!taken[r + c]) { sel.seat = r + c; return true; } return false; });
           }
         }
-        var html = '<div class="cabin" role="grid" aria-label="Cabin seat map">';
-        html += '<div class="cabin-nose" aria-hidden="true"></div><div class="cabin-body">';
-        html += '<div class="band-row" aria-hidden="true">' + bands.map(function (b) {
-          return '<span class="band-label' + (b === mine ? " on" : "") + '" style="--tag:' + b.color + ";grid-column:" + (b.start + 1) + " / " + (b.end + 2) + '">' + SF.esc(b.name) + "</span>";
+        // Overview: the whole cabin as one strip of class segments, yours highlighted.
+        var html = '<div class="cabin-strip" aria-hidden="true"><span class="strip-nose"></span>' + bands.map(function (b) {
+          return '<span class="strip-seg' + (b.start === mine.start ? " on" : "") + '" style="--tag:' + b.color + ";flex:" + (b.end - b.start + 1) + '"></span>';
         }).join("") + "</div>";
+        // Your class, enlarged: rows across, seats A to F down, aisle between C and D.
+        var rows = [];
+        for (var rr = mine.start; rr <= mine.end; rr++) rows.push(rr);
+        html += '<div class="seat-zoom" role="grid" aria-label="' + SF.esc(mine.name) + ', rows ' + mine.start + " to " + mine.end + '" style="--rows:' + rows.length + '">';
+        html += '<div class="sz-row sz-nums" role="row" aria-hidden="true"><span></span>' + rows.map(function (r) { return "<span>" + r + "</span>"; }).join("") + "</div>";
         COLS.forEach(function (c, ci) {
-          if (ci === 3) html += '<div class="aisle" aria-hidden="true"></div>';
-          html += '<div class="seat-row" role="row"><span class="col-label" aria-hidden="true">' + c + "</span>";
-          for (var r = 1; r <= ROWS; r++) {
-            var id = r + c, inBand = r >= mine.start && r <= mine.end, band = bands.filter(function (b) { return r >= b.start && r <= b.end; })[0];
-            var state = taken[id] ? "taken" : !inBand ? "other" : id === sel.seat ? "sel" : "free";
-            html += '<button type="button" role="gridcell" class="seat ' + state + '" data-seat="' + id + '" style="--tag:' + band.color + '"' +
-              (state === "taken" || state === "other" ? " disabled" : "") +
-              ' aria-label="Seat ' + id + (state === "taken" ? ", taken" : state === "other" ? ", " + band.name : state === "sel" ? ", selected" : ", available") + '"' +
-              (state === "sel" ? ' aria-pressed="true"' : "") + "></button>";
-          }
+          if (ci === 3) html += '<div class="sz-aisle" aria-hidden="true"><span>Aisle</span></div>';
+          html += '<div class="sz-row" role="row"><span class="sz-col" aria-hidden="true">' + c + "</span>";
+          rows.forEach(function (r) {
+            var id = r + c, state = taken[id] ? "taken" : id === sel.seat ? "sel" : "free";
+            html += '<button type="button" role="gridcell" class="seat ' + state + '" data-seat="' + id + '" style="--tag:' + mine.color + '"' +
+              (state === "taken" ? " disabled" : "") +
+              ' aria-label="Seat ' + id + (state === "taken" ? ", taken" : state === "sel" ? ", selected" : ", available") + '"' +
+              (state === "sel" ? ' aria-pressed="true"' : "") + ">" + (state === "sel" ? id : "") + "</button>";
+          });
           html += "</div>";
         });
-        html += '<div class="row-nums" aria-hidden="true"><span></span>' + Array.from({ length: ROWS }, function (_, i) { return "<span>" + ((i + 1) % 5 === 0 || i === 0 ? i + 1 : "") + "</span>"; }).join("") + "</div>";
-        html += "</div></div>";
+        html += "</div>";
+        html += '<div class="seat-legend" aria-hidden="true"><span><i class="lg free" style="--tag:' + mine.color + '"></i>Open</span><span><i class="lg sel"></i>Yours</span><span><i class="lg taken"></i>Taken</span></div>';
         box.innerHTML = html;
-        $("seatLabel").textContent = sel.seat ? sel.seat + " · " + mine.name.toUpperCase() : "CABIN FULL";
+        $("seatLabel").textContent = (sel.seat ? sel.seat : "FULL") + " · " + mine.name.toUpperCase();
         renderSummary();
       }
       $("seatMap").addEventListener("click", function (e) {

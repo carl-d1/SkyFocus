@@ -140,6 +140,7 @@
     // Layout flags: "stage" = full-bleed map behind the shell, "fit" = exactly one viewport tall.
     document.body.classList.toggle("has-stage", !!view.stage);
     document.body.classList.toggle("fit", !!(view.fit || view.stage));
+    document.body.classList.toggle("mat-smoke", !!view.smoke);
     ui.topbar("", "");
     try { view.mount(root, r.args); } catch (e) { console.error(e); root.innerHTML = '<div class="glass empty"><p class="mono">VIEW FAILED TO LOAD.</p></div>'; }
     ui.updateNav();

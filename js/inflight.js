@@ -26,6 +26,7 @@
 
   SF.views.flight = {
     stage: true,
+    smoke: true,
     mount: function (root) {
       var af = SF.store.state.activeFlight;
       if (!af) { ui.go("book"); return; }
