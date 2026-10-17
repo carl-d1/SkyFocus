@@ -267,7 +267,7 @@ kbd { display: inline-block; min-width: 32px; text-align: center; font-family: v
 
 /* file:// notice: a row at the top of the main column */
 body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr); }
-.file-banner { display: flex; align-items: center; gap: var(--s-3); height: 40px; padding: 0 var(--s-2) 0 var(--s-4); border-radius: var(--r-glass-sm); font-size: var(--fs-sm); background: var(--signal); color: var(--signal-ink); pointer-events: auto; }
+.file-banner { position: relative; z-index: 15; display: flex; align-items: center; gap: var(--s-3); height: 40px; padding: 0 var(--s-2) 0 var(--s-4); border-radius: var(--r-glass-sm); font-size: var(--fs-sm); background: var(--signal); color: var(--signal-ink); pointer-events: auto; }
 .file-banner span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-banner .btn { color: var(--signal-ink); background: none !important; box-shadow: none !important; }
 .notice { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-2) var(--s-2) var(--s-3); border-radius: var(--r-glass-sm); background: rgba(255, 196, 0, .14); box-shadow: inset 0 0 0 1px rgba(255, 196, 0, .45); flex-wrap: wrap; }

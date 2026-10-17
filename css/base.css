@@ -230,6 +230,7 @@ body.has-stage .backdrop { display: none; }
 }
 /* Screens that should exactly fill the viewport (no page scroll). */
 body.fit .main { height: 100vh; }
+body.fit { overflow: hidden; }
 
 /* ---------- top bar: one shared row for every overlay ---------- */
 .topbar { position: relative; z-index: 15; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s-4); height: var(--topbar-h); }
