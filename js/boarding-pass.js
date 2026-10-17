@@ -14,10 +14,10 @@
     var el = ui.h(
       '<article class="pass" style="--tag:' + f.tagColor + '" aria-label="Boarding pass ' + f.flightNo + " from " + A.city + " to " + B.city + '">' +
       '<div class="pass-main">' +
-      '<header class="pass-top"><div class="pass-brand"><img src="assets/logo.svg" alt="" width="22" height="22"><span>SkyFocus</span><small>Boarding pass</small></div>' + status + '<span class="pass-cls">' + SF.icon(f.tagIcon || "tag") + SF.esc(f.cls) + "</span></header>" +
+      '<header class="pass-top"><div class="pass-brand"><span>SkyFocus</span><small>Boarding pass</small></div>' + status + '<span class="pass-cls">' + SF.esc(f.cls) + "</span></header>" +
       '<div class="pass-route">' +
       '<div class="pr-end"><small>From</small><b>' + A.iata + "</b><span>" + SF.esc(A.city) + "</span></div>" +
-      '<div class="pr-mid"><span class="pr-line"></span>' + SF.icon("plane", "rot90") + '<span class="pr-line"></span><small class="mono">' + SF.fmt.dur(f.plannedMin) + "</small></div>" +
+      '<div class="pr-mid"><span class="pr-line"></span>' + SF.icon("plane", "rot90 fill") + '<span class="pr-line"></span><small>' + SF.fmt.dur(f.plannedMin).toUpperCase() + "</small></div>" +
       '<div class="pr-end right"><small>To</small><b>' + B.iata + "</b><span>" + SF.esc(B.city) + "</span></div></div>" +
       '<dl class="pass-grid">' +
       "<div><dt>Passenger</dt><dd>" + SF.esc(name) + "</dd></div>" +
@@ -30,7 +30,7 @@
       "<div><dt>Duration</dt><dd>" + SF.fmt.dur(f.plannedMin) + "</dd></div>" +
       '<div class="wide"><dt>Task</dt><dd>' + (f.task ? SF.esc(f.task) : '<span class="muted">Open focus</span>') + "</dd></div>" +
       "</dl>" +
-      '<canvas class="pass-barcode" width="560" height="56" aria-hidden="true"></canvas>' +
+      '<div class="pass-foot"><canvas class="pass-barcode" width="560" height="56" aria-hidden="true"></canvas><span class="form-no">FORM SF-07 · ' + f.id.slice(-6).toUpperCase() + "</span></div>" +
       "</div>" +
       '<div class="pass-stub">' +
       '<div class="stub-row"><small>Flight</small><b>' + f.flightNo + "</b></div>" +
@@ -75,7 +75,7 @@
   }
 
   /* ---------- gate view ---------- */
-  var DND = ["Phone silenced or face-down", "Other tabs and apps closed", "Water within reach", "Everything I need is open"];
+  var DND = ["Phone silenced", "Other tabs closed", "Water ready", "Materials open"];
 
   SF.views.board = {
     mount: function (root) {
@@ -86,19 +86,20 @@
       var timers = [];
       var self = this;
       self._timers = timers;
+      var guard = { off: "Off", warn: "Warn on exit", divert: "Divert after " + s.strictMinutes + " min away" }[s.strictness];
 
       root.innerHTML =
-        '<header class="page-head"><div><p class="eyebrow">Gate ' + af.gate + " · Now boarding</p><h1>" + af.fromCity + " to " + af.toCity + "</h1></div>" +
-        '<button class="btn btn-ghost" id="backBook">' + SF.icon("x") + "<span>Change booking</span></button></header>" +
+        '<header class="page-head"><div><p class="label">Gate ' + af.gate + " · Boarding</p><h1>" + SF.esc(af.fromCity) + " to " + SF.esc(af.toCity) + "</h1></div>" +
+        '<button class="btn" id="backBook">' + SF.icon("x") + "<span>Change booking</span></button></header>" +
         '<div class="gate-grid"><div class="pass-wrap" id="passWrap"></div>' +
-        '<aside class="panel gate-side">' +
-        (s.dndChecklist ? '<h3>Before takeoff</h3><ul class="checklist" id="dnd">' + DND.map(function (d, i) {
+        '<aside class="glass gate-side">' +
+        (s.dndChecklist ? '<h3>Pre-departure check</h3><ul class="checklist" id="dnd">' + DND.map(function (d, i) {
           return '<li><label><input type="checkbox" data-i="' + i + '"><span class="tick">' + SF.icon("check") + "</span><span>" + d + "</span></label></li>";
         }).join("") + "</ul>" : "") +
-        '<label class="switch"><input type="checkbox" id="apMode"><span class="track"><span class="thumb"></span></span><span><b>Airplane mode</b><small>Fullscreen with everything else hidden. Press F any time.</small></span></label>' +
-        '<p class="muted small-print">' + SF.icon("shield") + "Distraction guard: <b>" + ({ off: "off", warn: "warn when you leave", divert: "divert after " + s.strictMinutes + " min away" })[s.strictness] + "</b> · " + SF.flight.MAX_HOLDS + " holds available</p>" +
-        (SF.dev ? '<p class="dev-note">' + SF.icon("flask") + "Dev mode: time runs 60× faster.</p>" : "") +
-        '<button class="btn btn-primary btn-lg block" id="boardBtn">' + SF.icon("takeoff") + "<span>Board</span></button>" +
+        '<label class="switch"><input type="checkbox" id="apMode"><span class="track"><span class="thumb"></span></span><span><b>Airplane mode</b><small>Fullscreen. Non-essential UI hidden. Key F.</small></span></label>' +
+        '<p class="small-print">' + SF.icon("shield") + "Guard <b>" + guard + "</b> · Holds <b>" + SF.flight.MAX_HOLDS + "</b></p>" +
+        (SF.dev ? '<p class="dev-note">' + SF.icon("flask") + "DEV: TIME ×60</p>" : "") +
+        '<button class="btn btn-signal btn-lg block" id="boardBtn">' + SF.icon("takeoff") + "<span>Board</span></button>" +
         "</aside></div>";
 
       var pass = SF.renderPass(af);
@@ -107,21 +108,21 @@
 
       root.querySelector("#boardBtn").onclick = function () {
         var ap = root.querySelector("#apMode").checked;
-        var btn = this;
-        btn.disabled = true;
+        this.disabled = true;
+        this.querySelector("span").textContent = "Boarding closed";
         if (SF.audio && SF.audio.unlock) SF.audio.unlock();
         if (ap) SF.ui.enterFullscreen();
         var reduce = ui.reducedMotion();
         pass.classList.add("stamped");
-        timers.push(setTimeout(function () { pass.classList.add("torn"); }, reduce ? 0 : 650));
-        timers.push(setTimeout(function () { countdown(ap); }, reduce ? 200 : 1500));
+        timers.push(setTimeout(function () { pass.classList.add("torn"); }, reduce ? 0 : 450));
+        timers.push(setTimeout(function () { countdown(ap); }, reduce ? 200 : 1200));
       };
 
       function countdown(ap) {
         var n = 5;
-        var ov = ui.h('<div class="countdown" role="dialog" aria-modal="true" aria-label="Takeoff countdown"><div class="cd-inner">' +
-          '<p class="eyebrow">Cabin crew, prepare for takeoff</p><div class="cd-num mono" aria-live="assertive">5</div>' +
-          '<p class="muted">' + af.from + " → " + af.to + " · " + SF.fmt.dur(af.plannedMin) + '</p><button class="btn btn-ghost" id="cdSkip">Skip <kbd>Enter</kbd></button></div></div>');
+        var ov = ui.h('<div class="countdown" role="dialog" aria-modal="true" aria-label="Takeoff countdown"><div class="glass cd-inner">' +
+          '<p class="label">Cleared for takeoff</p><div class="cd-num" aria-live="assertive">5</div>' +
+          '<p class="mono muted">' + af.flightNo + "  " + af.from + " → " + af.to + '</p><button class="btn" id="cdSkip">Skip <kbd>Enter</kbd></button></div></div>');
         document.body.appendChild(ov);
         var done = false;
         function go() {

@@ -23,7 +23,7 @@
     landing: '<path d="M3 20h18"/><path d="M4.5 8.5l1.4-.8 2.3 2 4.3.7-2.7-6 1.8-.4 4.5 6.6 4 .7a1.8 1.8 0 0 1-.6 3.5L5 13z"/>',
     map: '<path d="M9 4L3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/>',
-    window: '<rect x="6" y="2.5" width="12" height="19" rx="6"/><rect x="8.5" y="5.5" width="7" height="13" rx="3.5"/>',
+    window: '<path d="M7 3h10l2 3v12l-2 3H7l-2-3V6z"/><path d="M8 14l3-2 2 1 3-2"/><path d="M8 17h8"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     logbook: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
@@ -137,7 +137,7 @@
     currentName = r.name;
     current = view;
     document.body.setAttribute("data-route", r.name);
-    try { view.mount(root, r.args); } catch (e) { console.error(e); root.innerHTML = '<div class="panel pad">Something went wrong loading this view.</div>'; }
+    try { view.mount(root, r.args); } catch (e) { console.error(e); root.innerHTML = '<div class="glass empty"><p class="mono">VIEW FAILED TO LOAD.</p></div>'; }
     ui.updateNav();
     root.focus({ preventScroll: true });
     window.scrollTo(0, 0);
@@ -145,8 +145,9 @@
 
   ui.buildNav = function () {
     var nav = ui.$("#nav");
+    nav.classList.add("glass");
     nav.innerHTML =
-      '<a class="brand" href="#/book" aria-label="SkyFocus home"><img src="assets/logo.svg" alt="" width="34" height="34"><span>SkyFocus</span></a>' +
+      '<a class="brand" href="#/book" aria-label="SkyFocus home" title="SkyFocus"><img src="assets/logo.svg" alt="" width="34" height="34"></a>' +
       '<ul class="nav-list">' + NAV.map(function (n) {
         return '<li><a href="#/' + n.route + '" data-route="' + n.route + '" aria-label="' + n.label + '" title="' + n.label + '">' + SF.icon(n.icon) + "<span>" + n.label + "</span></a></li>";
       }).join("") + "</ul>" +
@@ -166,7 +167,7 @@
       var show = af && af.started && currentName !== "flight";
       pill.hidden = !show;
       if (show) {
-        pill.innerHTML = '<a href="#/flight">' + SF.icon("plane") + '<span><b>' + af.from + " → " + af.to + '</b><small id="navFlightTime">In flight</small></span></a>';
+        pill.innerHTML = '<a href="#/flight" aria-label="Return to flight ' + af.from + " to " + af.to + '">' + SF.icon("plane") + '<b>' + af.to + '</b><small id="navFlightTime">--:--</small></a>';
       }
     }
     ui.updateGoal();
@@ -177,7 +178,8 @@
     if (!g || !SF.stats) return;
     var today = SF.stats.todayMinutes();
     var goal = SF.store.state.settings.dailyGoalMin || 120;
-    g.innerHTML = ui.ring(today / goal, 44, 5) + '<div><small>Today</small><b>' + SF.fmt.dur(today) + '</b><small>of ' + SF.fmt.dur(goal) + "</small></div>";
+    g.innerHTML = ui.ring(today / goal, 40, 3.5, "Daily goal " + Math.round(Math.min(1, today / goal) * 100) + "%") + '<small>Goal</small><b>' + Math.round(Math.min(9.99, today / goal) * 100) + "%</b>";
+    g.title = SF.fmt.dur(today) + " of " + SF.fmt.dur(goal) + " today";
   };
 
   /* ---------- progress ring ---------- */
@@ -196,15 +198,15 @@
 
   ui.modal = function (opts) {
     var prevFocus = document.activeElement;
-    var wrap = ui.h('<div class="modal-wrap" role="presentation"><div class="modal panel ' + (opts.cls || "") + '" role="dialog" aria-modal="true" aria-labelledby="mt-' + modalStack.length + '">' +
+    var wrap = ui.h('<div class="modal-wrap" role="presentation"><div class="modal glass ' + (opts.cls || "") + '" role="dialog" aria-modal="true" aria-labelledby="mt-' + modalStack.length + '">' +
       (opts.title ? '<header class="modal-head"><h2 id="mt-' + modalStack.length + '">' + opts.title + "</h2>" +
-        (opts.dismissable === false ? "" : '<button class="icon-btn" data-close aria-label="Close">' + SF.icon("x") + "</button>") + "</header>" : "") +
+        (opts.dismissable === false ? "" : '<button class="btn icon-only small" data-close aria-label="Close">' + SF.icon("x") + "</button>") + "</header>" : "") +
       '<div class="modal-body"></div><footer class="modal-actions"></footer></div></div>');
     var body = wrap.querySelector(".modal-body");
     if (typeof opts.body === "string") body.innerHTML = opts.body; else if (opts.body) body.appendChild(opts.body);
     var foot = wrap.querySelector(".modal-actions");
     (opts.actions || []).forEach(function (a) {
-      var b = ui.h('<button type="button" class="btn ' + (a.primary ? "btn-primary" : a.danger ? "btn-danger" : "btn-ghost") + '">' + (a.icon ? SF.icon(a.icon) : "") + "<span>" + a.label + "</span></button>");
+      var b = ui.h('<button type="button" class="btn ' + (a.primary ? "btn-signal" : a.danger ? "btn-danger" : "") + '">' + (a.icon ? SF.icon(a.icon) : "") + "<span>" + a.label + "</span></button>");
       b.addEventListener("click", function () {
         var keep = a.onClick && a.onClick(api) === false;
         if (!keep) api.close();
@@ -236,7 +238,7 @@
     api.dismissable = opts.dismissable !== false;
     document.body.appendChild(wrap);
     modalStack.push(api);
-    var first = wrap.querySelector("[autofocus]") || wrap.querySelector(".modal-actions .btn-primary") || wrap.querySelector("button, input, select, textarea");
+    var first = wrap.querySelector("[autofocus]") || wrap.querySelector(".modal-actions .btn-signal") || wrap.querySelector("button, input, select, textarea");
     if (first) setTimeout(function () { first.focus(); }, 30);
     return api;
   };
@@ -259,7 +261,7 @@
   /* ---------- toasts & announcements ---------- */
   ui.toast = function (msg, icon, ms) {
     var host = ui.$("#toasts");
-    var t = ui.h('<div class="toast" role="status">' + SF.icon(icon || "info") + "<span>" + msg + "</span></div>");
+    var t = ui.h('<div class="toast glass" role="status">' + SF.icon(icon || "info") + "<span>" + msg + "</span></div>");
     host.appendChild(t);
     setTimeout(function () { t.classList.add("out"); setTimeout(function () { t.remove(); }, 400); }, ms || 3600);
   };
@@ -268,6 +270,7 @@
   ui.announce = function (title, text, icon) {
     var el = ui.$("#announce");
     el.innerHTML = '<div class="ann-icon">' + SF.icon(icon || "info") + '</div><div><b>' + title + "</b><span>" + text + "</span></div>";
+    el.setAttribute("data-time", new Date().toISOString().slice(11, 16) + "Z");
     el.classList.remove("show");
     void el.offsetWidth;
     el.classList.add("show");
@@ -395,15 +398,15 @@
 
   /* ---------- shortcuts ---------- */
   var SHORTCUTS = ui.SHORTCUTS = [
-    ["Space", "Hold / resume the flight"],
-    ["M", "Cycle map modes"],
-    ["W", "Toggle window view"],
-    ["F", "Airplane mode (fullscreen focus)"],
-    ["C", "Toggle camera: follow plane / whole route"],
-    ["L", "Open logbook"],
-    ["S", "Open stats"],
-    ["Esc", "Close panels"],
-    ["?", "Show this list"]
+    ["Space", "Hold or resume"],
+    ["M", "Cycle map mode"],
+    ["W", "Window view"],
+    ["F", "Airplane mode"],
+    ["C", "Camera: follow or route"],
+    ["L", "Logbook"],
+    ["S", "Stats"],
+    ["Esc", "Close panel"],
+    ["?", "Shortcut list"]
   ];
   ui.showShortcuts = function () {
     if (ui.$(".modal-shortcuts")) return;
@@ -437,7 +440,7 @@
     if (k === "?") { e.preventDefault(); ui.showShortcuts(); }
     else if (k === "l" || k === "L") { ui.go("logbook"); }
     else if (k === "s" || k === "S") {
-      if (SF.views.stats) ui.go("stats"); else ui.toast("Stats dashboard arrives in the next milestone.", "stats");
+      if (SF.views.stats) ui.go("stats"); else ui.toast("Stats not installed yet.", "stats");
     }
   });
 
@@ -445,8 +448,8 @@
   ui.fileBanner = function () {
     if (!SF.isFile || SF.store.state.ui.fileBannerDismissed) return;
     var b = ui.h('<div class="file-banner" role="note">' + SF.icon("info") +
-      "<span>You opened SkyFocus directly from a file. Your data here is stored separately from the <b>start.bat</b> version, and notifications only work when launched with <b>start.bat</b>. Use Settings → Export/Import to move data between them.</span>" +
-      '<button class="icon-btn" aria-label="Dismiss">' + SF.icon("x") + "</button></div>");
+      "<span><b>FILE MODE.</b> Data here is stored separately from the start.bat version. Notifications need start.bat. Move data with Settings: Export and Import.</span>" +
+      '<button class="btn icon-only small" aria-label="Dismiss">' + SF.icon("x") + "</button></div>");
     b.querySelector("button").addEventListener("click", function () {
       SF.store.update(function (s) { s.ui.fileBannerDismissed = true; });
       b.remove();

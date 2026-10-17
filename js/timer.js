@@ -68,12 +68,12 @@
   }
 
   var MILESTONES = [
-    { id: "pushback", at: 0, icon: "plane", title: "Pushback", text: function (f) { return "Doors closed, beacon on. Your focus flight to " + f.toCity + " is under way."; } },
-    { id: "takeoff", at: 0.03, icon: "takeoff", title: "Wheels up", text: function (f) { return "We're airborne out of " + f.fromCity + ". Let everything else drop away below."; } },
-    { id: "cruise", at: T_CLIMB, icon: "compass", title: "Cruising altitude", text: function (f) { return "Level at flight level " + Math.round(f.cruiseAlt / 100) + ". Smooth air ahead. This is the deep-work stretch."; } },
-    { id: "halfway", at: 0.5, icon: "route", title: "Halfway", text: function (f) { return "Half the way to " + f.toCity + " is behind us. Hold your heading."; } },
-    { id: "tod", at: T_TOD, icon: "landing", title: "Top of descent", text: function () { return "We're beginning our descent. A good time to start tying off loose ends."; } },
-    { id: "approach", at: 0.95, icon: "target", title: "Final approach", text: function (f) { return f.toCity + " is in sight. Finish the thought you're on."; } }
+    { id: "pushback", at: 0, icon: "plane", title: "Pushback", text: function (f) { return "Doors closed. Pushback approved. Destination " + f.toCity + "."; } },
+    { id: "takeoff", at: 0.03, icon: "takeoff", title: "Takeoff", text: function (f) { return "Airborne " + f.fromCity + ". Climbing."; } },
+    { id: "cruise", at: T_CLIMB, icon: "compass", title: "Cruise", text: function (f) { return "Level FL" + Math.round(f.cruiseAlt / 100) + ". Seatbelt sign off."; } },
+    { id: "halfway", at: 0.5, icon: "route", title: "Halfway", text: function (f) { return "50 percent. Continuing to " + f.toCity + "."; } },
+    { id: "tod", at: T_TOD, icon: "landing", title: "Top of descent", text: function () { return "Descent started. Begin wrap-up."; } },
+    { id: "approach", at: 0.95, icon: "target", title: "Final approach", text: function (f) { return f.toCity + " in sight. Finish current item."; } }
   ];
 
   /* ---------- flight model ---------- */
@@ -221,7 +221,7 @@
       var now = Date.now();
       if (flight.normalize(af, now)) {
         SF.store.save();
-        SF.ui.toast("Hold time is up. We're back on course.", "play");
+        SF.ui.toast("Hold limit reached. Resuming.", "play");
         engine.emit("hold", { holding: false });
       }
       // Strict distraction guard can divert while away.
@@ -247,7 +247,7 @@
       SF.ui.setTitle(SF.fmt.clock(st.remainingMs) + " · " + af.from + " → " + af.to + (st.paused ? " (holding)" : ""));
       SF.ui.setFlightFavicon(st.progress);
       var navTime = document.getElementById("navFlightTime");
-      if (navTime) navTime.textContent = SF.fmt.clock(st.remainingMs) + " left";
+      if (navTime) navTime.textContent = SF.fmt.clock(st.remainingMs);
       engine.emit("tick", st);
       if (st.done) engine.land();
     },
@@ -261,13 +261,13 @@
           s.activeFlight.pausedTotal += now - s.activeFlight.pauseStart;
           s.activeFlight.pauseStart = null;
         }, true);
-        SF.ui.toast("Cleared to continue. Resuming course.", "play");
+        SF.ui.toast("Cleared. Resuming.", "play");
         engine.emit("hold", { holding: false });
         engine.tick();
         return true;
       }
       if (af.holds >= MAX_HOLDS) {
-        SF.ui.toast("No holds left on this flight. Keep flying!", "alert");
+        SF.ui.toast("Hold unavailable. 2 of 2 used.", "alert");
         return false;
       }
       if (flight.status(af, now).done) return false;
@@ -275,8 +275,7 @@
         s.activeFlight.pauseStart = now;
         s.activeFlight.holds += 1;
       }, true);
-      var left = MAX_HOLDS - af.holds;
-      SF.ui.announce("Holding pattern", "Circling for up to 10 minutes. " + (left ? left + " hold left on this flight." : "That was the last hold for this flight."), "pause");
+      SF.ui.announce("Hold " + af.holds + " of " + MAX_HOLDS, "Holding at present position. Maximum 10 minutes.", "pause");
       engine.emit("hold", { holding: true });
       engine.tick();
       return true;
@@ -296,7 +295,7 @@
       var rec = flight.toRecord(af, "landed", st);
       engine.finish(rec, af.to);
       if (SF.audio && SF.audio.touchdown) SF.audio.touchdown();
-      SF.ui.announce("Touchdown", "Welcome to " + af.toCity + ". Nicely flown.", "landing");
+      SF.ui.announce("Landed", "Arrived " + af.toCity + ".", "landing");
       engine.emit("landed", rec);
       SF.ui.go("arrival/" + rec.id);
     },
@@ -369,8 +368,8 @@
       engine.emit("turbulence", { away: away, count: af.turbulence + 1 });
       var secs = Math.round(away * af.timeScale / 1000);
       var awayTxt = secs < 60 ? secs + " s" : Math.round(secs / 60) + " min";
-      SF.ui.announce("Turbulence", "You left the cabin for " + awayTxt + ". Seatbelt back on, and back to it." +
-        (s.strictness === "divert" ? " (Away over " + s.strictMinutes + " min diverts the flight.)" : ""), "alert");
+      SF.ui.announce("Turbulence", "Cabin left for " + awayTxt + ". Event logged." +
+        (s.strictness === "divert" ? " Diversion after " + s.strictMinutes + " min away." : ""), "alert");
     }
   });
 })();

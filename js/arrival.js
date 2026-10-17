@@ -69,8 +69,12 @@
       plane = "";
     }
     return '<svg class="stamp" viewBox="0 0 200 200" width="' + size + '" height="' + size + '" role="img" aria-label="Passport stamp: ' + SF.esc(s.city) + ", " + SF.esc(s.country) + '">' +
-      '<filter id="' + fid + '"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="' + (hi % 100) + '" result="n"/>' +
-      '<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 1.6" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter>' +
+      '<filter id="' + fid + '" x="-5%" y="-5%" width="110%" height="110%">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="' + (hi % 97) + '" result="w"/>' +
+      '<feDisplacementMap in="SourceGraphic" in2="w" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d"/>' +
+      '<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="' + (hi % 89) + '" result="n"/>' +
+      '<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.75" result="m"/>' +
+      '<feComposite in="d" in2="m" operator="in"/></filter>' +
       '<g transform="rotate(' + rot + ' 100 100)" filter="url(#' + fid + ')" fill="none" stroke="' + ink + '" font-family="JetBrains Mono, Consolas, monospace">' +
       outer + inner + '<g fill="' + ink + '" stroke="none">' + text + "</g>" + plane + "</g></svg>";
   };
@@ -85,49 +89,50 @@
   }
 
   /* ---------- arrival ---------- */
+  var OUTCOMES = [["yes", "Complete"], ["partly", "Partial"], ["no", "Not complete"]];
+
   SF.views.arrival = {
     mount: function (root, args) {
       var rec = findFlight(args[0]) || SF.store.state.flights[SF.store.state.flights.length - 1];
       if (!rec) { ui.go("book"); return; }
       var landed = rec.status === "landed";
       var here = SF.airport(landed ? rec.to : rec.from);
-      var stamp = SF.store.state.stamps.filter(function (s) { return s.iata === rec.to; })[0];
+      var stamp = SF.store.state.stamps.filter(function (x) { return x.iata === rec.to; })[0];
       var breaks = SF.store.state.settings.breaks;
+      var stampCount = SF.store.state.stamps.length;
 
       root.innerHTML =
         '<div class="arrival">' +
-        '<section class="panel arrival-card' + (landed ? "" : " diverted") + '">' +
-        '<div class="arr-hero">' +
-        '<div class="arr-icon">' + SF.icon(landed ? "landing" : "alert") + "</div>" +
-        '<p class="eyebrow">' + (landed ? "Flight " + rec.flightNo + " has landed" : "Flight " + rec.flightNo + " diverted") + "</p>" +
-        "<h1>" + (landed ? "Welcome to " + SF.esc(here.city) : "Back at " + SF.esc(here.city)) + "</h1>" +
-        '<p class="muted">Local time <b class="mono">' + SF.fmt.localTime(here.tz, new Date()) + "</b> · " + SF.esc(here.country) + "</p>" +
-        (rec.divertReason === "away" ? '<p class="divert-why">' + SF.icon("shield") + "The distraction guard turned this flight around because you were away from the cabin too long.</p>" : "") +
-        "</div>" +
-        '<dl class="arr-facts">' +
-        '<div><dt>Focus time</dt><dd class="mono">' + SF.fmt.dur(rec.focusMin) + "</dd></div>" +
-        '<div><dt>Miles earned</dt><dd class="mono accent">+' + rec.miles.toLocaleString() + "</dd></div>" +
-        '<div><dt>Distance</dt><dd class="mono">' + SF.fmt.dist(rec.flownKm) + "</dd></div>" +
-        '<div><dt>Turbulence</dt><dd class="mono">' + rec.turbulence + "</dd></div>" +
-        '<div><dt>Tag</dt><dd><span class="tag-pill" style="--tag:' + rec.tagColor + '">' + SF.icon(rec.tagIcon) + SF.esc(rec.tagName) + "</span></dd></div>" +
-        '<div class="wide"><dt>Task</dt><dd>' + (rec.task ? SF.esc(rec.task) : '<span class="muted">Open focus</span>') + "</dd></div>" +
+        '<section class="paper report" aria-label="Arrival report">' +
+        '<div class="report-head"><div><p class="label">' + rec.flightNo + " · " + rec.from + " → " + rec.to + "</p>" +
+        "<h1>" + (landed ? "Arrived " + SF.esc(here.city) : "Diverted") + "</h1>" +
+        '<p class="stat-line">' + (landed ? "LOCAL " + SF.fmt.localTime(here.tz, new Date()) + " · " + SF.esc(here.country.toUpperCase())
+          : "RETURNED TO " + SF.esc(here.city.toUpperCase()) + " · LOCAL " + SF.fmt.localTime(here.tz, new Date())) + "</p>" +
+        (rec.divertReason === "away" ? '<p class="divert-why">REASON: DISTRACTION GUARD. TIME AWAY EXCEEDED LIMIT.</p>' : "") +
+        '</div><span class="form-no">FORM SF-12<br>ARRIVAL REPORT</span></div>' +
+        '<dl class="report-grid">' +
+        "<div><dt>Block time</dt><dd>" + SF.fmt.dur(rec.focusMin) + "</dd></div>" +
+        "<div><dt>Miles</dt><dd>+" + rec.miles.toLocaleString() + "</dd></div>" +
+        "<div><dt>Distance</dt><dd>" + SF.fmt.dist(rec.flownKm) + "</dd></div>" +
+        "<div><dt>Turbulence</dt><dd>" + rec.turbulence + "</dd></div>" +
+        "<div><dt>Holds</dt><dd>" + rec.holds + " OF " + SF.flight.MAX_HOLDS + "</dd></div>" +
+        '<div><dt>Class</dt><dd><span class="tag-pill" style="--tag:' + rec.tagColor + '">' + SF.esc(rec.tagName) + "</span></dd></div>" +
+        '<div class="wide"><dt>Task</dt><dd>' + (rec.task ? SF.esc(rec.task) : "Not entered") + "</dd></div>" +
         "</dl>" +
-        '<div class="outcome"><p><b>Did you finish what you planned?</b></p><div class="chips" id="outcome" role="group" aria-label="Outcome">' +
-        [["yes", "Yes", "check"], ["partly", "Partly", "minus"], ["no", "No", "x"]].map(function (o) {
-          return '<button class="chip' + (rec.outcome === o[0] ? " on" : "") + '" data-o="' + o[0] + '" aria-pressed="' + (rec.outcome === o[0]) + '">' + SF.icon(o[2]) + "<span>" + o[1] + "</span></button>";
+        '<div class="outcome"><span class="label">Task status</span><div class="tickboxes" id="outcome" role="radiogroup" aria-label="Task status">' +
+        OUTCOMES.map(function (o) {
+          return '<button type="button" role="radio" class="tickbox' + (rec.outcome === o[0] ? " on" : "") + '" data-o="' + o[0] + '" aria-checked="' + (rec.outcome === o[0]) + '"><i></i>' + o[1] + "</button>";
         }).join("") + "</div>" +
-        '<label class="field"><span>Note <small class="muted">(optional)</small></span><textarea id="note" rows="2" maxlength="400" placeholder="What went well? What’s next?">' + SF.esc(rec.note) + "</textarea></label></div>" +
+        '<label class="field"><span class="label">Remarks</span><textarea id="note" rows="2" maxlength="400">' + SF.esc(rec.note) + "</textarea></label></div>" +
         "</section>" +
         '<aside class="arr-side">' +
-        '<div class="panel stamp-card">' +
-        (landed && stamp ? (rec.newStamp ? '<p class="eyebrow">New passport stamp</p>' : '<p class="eyebrow">Already in your passport</p>') +
-          '<div class="stamp-wrap' + (rec.newStamp ? " fresh" : "") + '">' + SF.stampSVG(stamp, 170) + "</div>" +
-          '<p class="muted center">' + SF.store.state.stamps.length + " " + (SF.store.state.stamps.length === 1 ? "city" : "cities") + " collected</p>"
-          : '<p class="eyebrow">No stamp this time</p><div class="no-stamp">' + SF.icon("passport") + '</div><p class="muted center">Diverted flights earn miles for the distance flown, but no city stamp.</p>') +
+        '<div class="paper passport-page"><div class="pp-head"><span class="label">' + (landed && stamp ? (rec.newStamp ? "Stamp issued" : "Stamp on file") : "No stamp") + '</span><span class="form-no">PASSPORT P.' + String(Math.max(1, stampCount)).padStart(2, "0") + "</span></div>" +
+        (landed && stamp ? '<div class="stamp-wrap' + (rec.newStamp ? " fresh" : "") + '">' + SF.stampSVG(stamp, 170) + "</div>"
+          : '<div class="no-stamp">DIVERTED FLIGHTS ARE NOT STAMPED</div>') +
         "</div>" +
-        '<div class="panel next-card"><h3>' + SF.icon("coffee") + "Layover</h3><p class=\"muted\">Take a proper break before your next flight.</p>" +
-        '<div class="chips" id="layover">' + breaks.map(function (b) { return '<button class="chip" data-b="' + b + '">' + b + " min</button>"; }).join("") + "</div>" +
-        '<button class="btn btn-primary block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight from " + here.iata + "</span></button></div>" +
+        '<div class="glass next-card"><h3>' + SF.icon("coffee") + "Layover</h3><p class=\"muted\">Break before the next departure.</p>" +
+        '<div class="chips" id="layover">' + breaks.map(function (b) { return '<button type="button" class="chip mono" data-b="' + b + '">' + b + " MIN</button>"; }).join("") + "</div>" +
+        '<button class="btn btn-signal block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>" +
         "</aside></div>";
 
       root.querySelector("#outcome").onclick = function (e) {
@@ -135,7 +140,7 @@
         var o = b.getAttribute("data-o");
         updateFlight(rec.id, function (f) { f.outcome = o; });
         rec.outcome = o;
-        ui.$$("#outcome .chip", root).forEach(function (c) { var on = c === b; c.classList.toggle("on", on); c.setAttribute("aria-pressed", on); });
+        ui.$$("#outcome .tickbox", root).forEach(function (c) { var on = c === b; c.classList.toggle("on", on); c.setAttribute("aria-checked", on); });
         if (SF.achievements && SF.achievements.evaluate) SF.achievements.evaluate(rec);
       };
       var note = root.querySelector("#note");
@@ -152,6 +157,16 @@
     unmount: function () { }
   };
 
+  /* ---------- split-flap text ---------- */
+  function flaps(text, width) {
+    text = String(text).toUpperCase().slice(0, width);
+    while (text.length < width) text += " ";
+    return '<span class="flaps" aria-label="' + SF.esc(text.trim()) + '">' + text.split("").map(function (ch, i) {
+      return '<span class="flap" style="animation-delay:' + (i * 35) + 'ms" aria-hidden="true">' + (ch === " " ? "&nbsp;" : SF.esc(ch)) + "</span>";
+    }).join("") + "</span>";
+  }
+  SF.flaps = flaps;
+
   /* ---------- layover ---------- */
   SF.views.layover = {
     mount: function (root) {
@@ -160,38 +175,38 @@
       var here = SF.airport(SF.store.state.currentAirport);
       var total = lo.min * 60000, iv = null, finished = false;
       var def = SF.store.state.settings.defaultDuration;
-      var A = here;
-      var sugg = window.AIRPORTS.filter(function (a) { return a.iata !== A.iata; }).map(function (a) {
-        var km = SF.geo.distanceKm(A, a);
-        return { a: a, real: SF.geo.realisticMinutes(km) };
-      }).sort(function (x, y) { return Math.abs(x.real - def) - Math.abs(y.real - def); }).slice(0, 4);
+      var sugg = SF.routeCandidates(here.iata, def, { max: 6 });
 
       root.innerHTML =
-        '<div class="layover"><section class="panel layover-card">' +
-        '<p class="eyebrow">Layover in ' + SF.esc(here.city) + "</p><h1>Stretch your legs</h1>" +
-        '<div class="lo-ring"><div id="loRing"></div><div class="lo-time mono" id="loTime">' + SF.fmt.clock(total) + "</div></div>" +
-        '<p class="muted" id="loMsg">Step away from the screen, refill your water, look at something far away.</p>' +
-        '<div class="row-btns"><button class="btn btn-ghost" id="loEnd">End layover</button></div>' +
+        '<div class="layover"><section class="glass layover-card">' +
+        '<p class="label">Layover · ' + SF.esc(here.city) + " · Local " + SF.fmt.localTime(here.tz, new Date()) + "</p><h1>Break</h1>" +
+        '<div class="lo-ring"><div id="loRing"></div><div class="lo-time" id="loTime">' + SF.fmt.clock(total) + "</div></div>" +
+        '<p class="muted" id="loMsg">Leave the screen. Water. Look at something far away.</p>' +
+        '<div class="row-btns"><button class="btn" id="loEnd">End layover</button></div>' +
         "</section>" +
-        '<section class="panel lo-next"><h3>' + SF.icon("route") + "Next departures from " + here.iata + '</h3><div class="dest-list">' +
-        sugg.map(function (r) {
-          return '<button class="dest" data-code="' + r.a.iata + '"><b class="mono code">' + r.a.iata + '</b><span class="dest-name">' + SF.esc(r.a.city) + "<small>" + SF.esc(r.a.country) + '</small></span><span class="dest-meta mono">' + SF.fmt.dur(def) + "<small>focus</small></span></button>";
-        }).join("") + "</div></section></div>";
+        '<section class="board" aria-label="Departures from ' + here.iata + '">' +
+        '<div class="board-head"><span>FLIGHT</span><span>DESTINATION</span><span>BLOCK</span><span>STATUS</span></div>' +
+        sugg.map(function (r, i) {
+          return '<button type="button" class="board-row" data-code="' + r.a.iata + '">' +
+            flaps(SF.flight.flightNo(here.iata, r.a.iata), 5) + flaps(r.a.city, 14) + flaps(SF.fmt.dur(def), 6) +
+            '<span class="status-cell">' + (i === 0 ? "BOARDING" : "SCHEDULED") + "</span></button>";
+        }).join("") + "</section></div>";
+      if (!ui.reducedMotion()) ui.$$(".flap", root).forEach(function (f) { f.classList.add("flip"); });
 
       function tick() {
         var el = (Date.now() - lo.start) * (lo.scale || 1);
         var left = Math.max(0, total - el);
         root.querySelector("#loTime").textContent = SF.fmt.clock(left);
-        root.querySelector("#loRing").innerHTML = ui.ring(el / total, 220, 10, "Layover " + Math.round(Math.min(1, el / total) * 100) + "%");
+        root.querySelector("#loRing").innerHTML = ui.ring(el / total, 220, 8, "Layover " + Math.round(Math.min(1, el / total) * 100) + "%");
         SF.ui.setTitle(SF.fmt.clock(left) + " · Layover");
         if (left <= 0 && !finished) {
           finished = true;
           clearInterval(iv);
-          root.querySelector("#loMsg").textContent = "Layover complete. Ready for your next flight?";
+          root.querySelector("#loMsg").textContent = "Layover complete.";
           root.querySelector("#loEnd").innerHTML = SF.icon("takeoff") + "<span>Book next flight</span>";
-          root.querySelector("#loEnd").className = "btn btn-primary";
+          root.querySelector("#loEnd").className = "btn btn-signal";
           SF.ui.setTitle("");
-          SF.ui.announce("Boarding soon", "Your layover in " + here.city + " is over. Pick your next flight.", "takeoff");
+          SF.ui.announce("Boarding", "Layover " + here.iata + " complete.", "takeoff");
           SF.store.update(function (s) { s.layover = null; }, true);
         }
       }
@@ -201,13 +216,12 @@
         SF.store.update(function (s) { s.layover = null; }, true);
         ui.go("book");
       };
-      root.querySelector(".lo-next").onclick = function (e) {
+      root.querySelector(".board").onclick = function (e) {
         var b = e.target.closest("[data-code]"); if (!b) return;
         SF.store.update(function (s) { s.layover = null; }, true);
-        SF.bookPreset = { to: b.getAttribute("data-code") };
+        SF.bookPreset = { to: b.getAttribute("data-code"), minutes: def };
         ui.go("book");
       };
-      this._iv = iv;
       this._stop = function () { clearInterval(iv); SF.ui.setTitle(""); };
     },
     unmount: function () { if (this._stop) this._stop(); }

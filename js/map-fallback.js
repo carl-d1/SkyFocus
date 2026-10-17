@@ -86,7 +86,7 @@
       if (camera === "follow" && pos) {
         var span = Math.max(26, Math.min(60, route.spanLon * 0.6 + 10));
         var hh = span / a;
-        return { x: pos.lon - span / 2, y: -pos.lat - hh / 2, w: span, h: hh };
+        return { x: pos.lon - span / 2 - span * (opts.offsetX || 0), y: -pos.lat - hh / 2, w: span, h: hh };
       }
       var xs = route.pts.map(function (p) { return p.lon; }), ys = route.pts.map(function (p) { return -p.lat; });
       var t = fit(Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys), opts.pad || 0.35);
@@ -103,6 +103,7 @@
       ui$all(dots, "circle").forEach(function (c) { c.setAttribute("r", (c.getAttribute("data-px") || 4) * u); });
       ui$all(labels, "text").forEach(function (t) {
         t.setAttribute("font-size", 12 * u);
+        t.setAttribute("stroke-width", 3 * u);
         t.setAttribute("x", +t.getAttribute("data-x") + 8 * u);
         t.setAttribute("y", +t.getAttribute("data-y") - 6 * u);
       });
