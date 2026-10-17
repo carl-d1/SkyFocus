@@ -10,6 +10,7 @@ SkyFocus uses three materials, each with a fixed job. They never stand in for ea
 Glass is the main UI layer. It floats over the map, the sky and the backdrops.
 
 - **Used for:** the nav rail, top bar items, the flight chip, map controls, the instrument cluster, the booking sheet, settings sheets, modals and the timer.
+- **Variant:** C "Smoked", chosen in the glass lab. Dark tint, medium blur, strongest text contrast.
 - **Rendering:** backdrop blur and saturation, plus SVG displacement refraction where Chromium supports it. Each piece also gets a light rim, a specular highlight along the top edge that follows the pointer, and a soft inner shadow.
 - **Tint adapts to the backdrop.** A view marks what is behind it with `data-backdrop="bright"` (sky, light imagery) or `data-backdrop="dark"` (night map), so text stays readable.
 - **Controls inside glass** are glass too: pill buttons that squish when pressed, segmented controls and switches.

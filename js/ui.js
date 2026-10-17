@@ -242,6 +242,7 @@
         if (i < 0) return;
         modalStack.splice(i, 1);
         wrap.remove();
+        if (opts.onDestroy) opts.onDestroy();
         if (!silent && opts.onClose) opts.onClose();
         if (prevFocus && prevFocus.focus) try { prevFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
       }

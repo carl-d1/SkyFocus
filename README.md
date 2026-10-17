@@ -101,15 +101,24 @@ Built in two milestones, each committed to git so any step can be rolled back.
 - Settings with tags, export/import and reset
 - `start.bat` with port fallback, file:// banner
 
-**Milestone 2 (next)**
-- Leaflet classic (light/dark vector basemap) and satellite maps, 3D globe with day/night shading. The built-in map stays as the automatic fallback.
-- Window view (sky by real local time at the plane, clouds, stars, turbulence wobble)
-- Web Audio: engine hum, rain, white noise, procedural ambient music, chimes, takeoff and touchdown sounds, per-layer mixer
-- Stats dashboard (Chart.js), calendar heatmap, routes map
-- 20+ achievements, frequent-flyer tiers with membership card, unlockable themes, map styles and sound layers
-- Daily reminder and landing notifications
+**Milestone 2 (in progress, revised)**
+
+Done:
+- Shortcuts moved to Settings; time-first booking ("Pick my time") with a destination reveal, Reroll and other options.
+- Glass and paper design system (DESIGN.md), Smoked glass variant, spacing scale and shell grid, glass lab (`?lab=1`).
+- Maps: Classic (Esri dark or light canvas basemap) and Satellite (Esri World Imagery) through Leaflet 1.9.4, and a three.js r149 3D globe with real day and night imagery blended along the terminator. Each mode shows the built-in map instantly, swaps to the real one when its library loads, and keeps the built-in map (flat or canvas globe) if the network, tiles or WebGL are unavailable.
+- Holding pattern: while holding, the plane flies a racetrack loop at its position on every map. Each flight records its real track (route progress plus every hold), shown on the arrival report's route chart and replayed in the logbook.
+
+Next:
+- Pomodoro journeys
+- Window view and Web Audio
+- Takeoff and landing scenes in 3D, then the wider motion pass
+- Stats dashboard, achievements and frequent-flyer tiers
 
 ## Credits
 
 - Land outlines: [Natural Earth](https://www.naturalearthdata.com/) (public domain) via the `world-atlas` package.
+- Map tiles: Esri World Dark Gray, World Light Gray, World Imagery and reference layers (attribution shown on the map).
+- Globe imagery: NASA Blue Marble and Black Marble, as packaged in the `three-globe` examples.
+- Libraries, loaded on demand from CDNs at pinned versions: Leaflet 1.9.4, three.js r149.
 - All artwork, icons, stamps and copy in this project are original.

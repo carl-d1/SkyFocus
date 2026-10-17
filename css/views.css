@@ -148,10 +148,10 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
 .report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-4); padding-bottom: var(--s-4); border-bottom: 2px solid var(--paper-ink); }
 .report-head h1 { font-size: 44px; text-transform: uppercase; letter-spacing: .02em; margin-top: var(--s-1); }
 .report-head .stat-line { font-family: var(--font-mono); font-size: 13px; color: var(--paper-muted); margin-top: var(--s-2); }
-.report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-left: 1px solid var(--paper-rule); border-top: 1px solid var(--paper-rule); }
+.report-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; border-left: 1px solid var(--paper-rule); border-top: 1px solid var(--paper-rule); }
 .report-grid > div { padding: var(--s-2) var(--s-3) var(--s-3); border-right: 1px solid var(--paper-rule); border-bottom: 1px solid var(--paper-rule); }
 .report-grid dt { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); }
-.report-grid dd { margin: var(--s-1) 0 0; font-family: var(--font-mono); font-size: 20px; font-weight: 600; }
+.report-grid dd { margin: var(--s-1) 0 0; font-family: var(--font-mono); font-size: 18px; font-weight: 600; white-space: nowrap; }
 .report-grid .wide { grid-column: 1 / -1; }
 .report-grid .wide dd { font-family: var(--font-body); font-size: 16px; }
 .divert-why { font-family: var(--font-mono); font-size: 12px; color: var(--paper-red); margin-top: var(--s-2); }
@@ -222,8 +222,9 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
 .ledger-foot { margin-top: auto; padding-top: var(--s-5); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-5); align-items: end; }
 .ledger-foot .stamp-row { display: flex; gap: var(--s-3); overflow: hidden; }
 .ledger-foot .stamp-row .stamp { width: 72px; flex: none; }
-.pass-modal { display: grid; gap: var(--s-4); justify-items: center; }
-.rec-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; margin: 0; padding: var(--s-2); border-radius: var(--r-glass-sm); }
+.pass-modal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-4); align-items: stretch; }
+.pass-modal .pass { grid-column: 1 / -1; justify-self: center; }
+.rec-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; width: 100%; margin: 0; padding: var(--s-2); border-radius: var(--r-glass-sm); }
 .rec-facts > div { padding: var(--s-2) var(--s-3); }
 .rec-facts dt { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--glass-muted); }
 .rec-facts dd { margin: var(--s-1) 0 0; font-family: var(--font-mono); font-weight: 500; }
@@ -293,7 +294,6 @@ body[data-route="welcome"] .app { grid-template-columns: minmax(0, 1fr); }
   .book { grid-template-columns: var(--sheet-w) minmax(0, 1fr); }
   .book-side { grid-column: 2; justify-self: end; width: var(--side-w); }
   .ft-tools .seg-btn span { display: none; }
-  .rec-facts { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-height: 800px) {
   .sheet-body { gap: var(--s-3); padding-top: var(--s-3); }
@@ -319,3 +319,15 @@ a.seg-btn { text-decoration: none; }
 .lab-clear { --glass-tint: 18 20 24; --glass-alpha: .12; --glass-blur: 4px; --glass-sat: 1.9; --glass-bright: 1.08; --glass-well: rgba(0, 0, 0, .28); }
 .lab-frost { --glass-tint: 226 232 242; --glass-alpha: .16; --glass-blur: 26px; --glass-sat: 1.35; --glass-bright: 1.12; --glass-well: rgba(255, 255, 255, .08); }
 .lab-smoke { --glass-tint: 10 11 14; --glass-alpha: .56; --glass-blur: 14px; --glass-sat: 1.5; --glass-bright: .95; --glass-well: rgba(0, 0, 0, .3); }
+
+/* route chart on the arrival report, track panel in the logbook viewer */
+.chart-block { flex: 1 1 auto; min-height: 112px; display: flex; flex-direction: column; gap: var(--s-2); }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; }
+.chart-block .chart { flex: 1; min-height: 96px; }
+.outcome { flex: none; }
+.outcome .field { flex: none; grid-template-rows: auto auto; }
+.outcome textarea { height: 48px; }
+.track-panel { width: 100%; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4); }
+.track-panel header { display: flex; align-items: center; gap: var(--s-3); }
+.track-panel header .label { flex: 1; }
+.track-map { position: relative; flex: 1; min-height: 160px; border-radius: var(--r-glass-sm); overflow: hidden; }

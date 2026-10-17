@@ -124,6 +124,9 @@
         '<div><dt>Class</dt><dd><span class="tag-pill" style="--tag:' + rec.tagColor + '">' + SF.esc(rec.tagName) + "</span></dd></div>" +
         '<div class="wide"><dt>Task</dt><dd>' + (rec.task ? SF.esc(rec.task) : "Not entered") + "</dd></div>" +
         "</dl>" +
+        '<div class="chart-block"><div class="chart-head"><span class="label">Route chart · track flown</span><span class="form-no">' +
+        ((rec.track && rec.track.holds.length) ? rec.track.holds.length + " HOLD" + (rec.track.holds.length > 1 ? "S" : "") + " SHOWN" : "NO HOLDS") + "</span></div>" +
+        '<div class="chart" id="arrChart" role="img" aria-label="Chart of the track flown from ' + rec.from + " to " + rec.to + '"></div></div>' +
         '<div class="outcome"><span class="label">Task status</span><div class="tickboxes" id="outcome" role="radiogroup" aria-label="Task status">' +
         OUTCOMES.map(function (o) {
           return '<button type="button" role="radio" class="tickbox' + (rec.outcome === o[0] ? " on" : "") + '" data-o="' + o[0] + '" aria-checked="' + (rec.outcome === o[0]) + '"><i></i>' + o[1] + "</button>";
@@ -140,6 +143,13 @@
         '<button class="btn btn-signal block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>" +
         "</aside></div>";
 
+      var chart = SF.FallbackMap(root.querySelector("#arrChart"), { camera: "route", showPlane: false, night: false, padPx: 24, label: "Route chart" });
+      chart.setRoute(SF.airport(rec.from), SF.airport(rec.to));
+      chart.setProgress(rec.track ? rec.track.routeFrac : rec.flownKm / Math.max(1, rec.distanceKm));
+      chart.setTrack(SF.flight.trackPoints(rec, 48, SF.flight.chartHoldKm(rec)));
+      chart.setMarkers([{ lat: SF.airport(rec.from).lat, lon: SF.airport(rec.from).lon, label: rec.from, cls: "m-from", px: 4.5 },
+        { lat: SF.airport(rec.to).lat, lon: SF.airport(rec.to).lon, label: rec.to, cls: "m-to", px: 4.5 }].concat(SF.flight.holdMarkers(rec)));
+      this._chart = chart;
       root.querySelector("#outcome").onclick = function (e) {
         var b = e.target.closest("[data-o]"); if (!b) return;
         var o = b.getAttribute("data-o");
@@ -159,7 +169,7 @@
       root.querySelector("#nextFlight").onclick = function () { ui.go("book"); };
       ui.updateGoal();
     },
-    unmount: function () { }
+    unmount: function () { if (this._chart) this._chart.destroy(); this._chart = null; }
   };
 
   /* ---------- split-flap text ---------- */

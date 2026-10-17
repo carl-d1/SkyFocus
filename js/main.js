@@ -53,7 +53,8 @@
           af.startAt = now - (5 - k) * 20 * H - l[2] * 60000; af.holds = l[6]; af.turbulence = l[7];
           var frac = l[5] === "landed" ? 1 : .55;
           var st = { flownKm: af.distanceKm * frac, elapsedMs: l[2] * 60000 * frac };
-          var rec = SF.flight.toRecord(af, l[5], st, { outcome: l[8], endAt: af.startAt + l[2] * 60000 });
+          if (l[6]) af.track.holds = [{ frac: .42, heading: SF.geo.bearing(SF.airport(l[0]), SF.airport(l[1])), durationMs: 360000, laps: 1.5 }];
+          var rec = SF.flight.toRecord(af, l[5], Object.assign({ routeFrac: frac }, st), { outcome: l[8], endAt: af.startAt + l[2] * 60000 });
           if (l[5] === "landed" && !s.stamps.some(function (x) { return x.iata === l[1]; })) {
             var a = SF.airport(l[1]);
             s.stamps.push({ iata: a.iata, city: a.city, country: a.country, cc: a.cc, continent: a.continent, date: rec.endAt, flightId: rec.id });
@@ -64,15 +65,25 @@
         s.currentAirport = "SIN";
       }
     }, true);
-    if (kind === "flight" && !SF.store.state.activeFlight) {
+    var modeFor = { globe: "globe", satellite: "satellite", hold: "classic", flight: "classic" };
+    if (modeFor[kind] && !SF.store.state.activeFlight) {
       SF.store.update(function (s) {
         var af = SF.flight.create({ from: "SIN", to: "HKG", minutes: 240, tagId: "coding", seat: "4A", task: "Refactor the parser" });
         af.timeScale = 1; af.started = true; af.startAt = now - 96 * 60000;
         af.milestones = { pushback: 1, takeoff: 1, cruise: 1 };
+        if (kind === "hold") {
+          // in the middle of a hold that began two minutes ago
+          var st = SF.flight.status(af, now - 120000);
+          af.track.holds.push({ frac: st.routeFrac, heading: st.heading, start: now - 120000, end: null });
+          af.pauseStart = now - 120000; af.holds = 1;
+        }
         s.activeFlight = af;
+        s.settings.mapMode = modeFor[kind];
+        s.settings.camera = "route";
       }, true);
       SF.engine.run();
     }
+    if (modeFor[kind]) kind = "flight";
     var target = { flight: "flight", book: "book", logbook: "logbook", passport: "passport", settings: "settings", layover: "layover",
       arrival: "arrival/" + SF.store.state.flights.filter(function (f) { return f.status === "landed"; }).slice(-1)[0].id }[kind] || "book";
     if (kind === "layover") SF.store.update(function (s) { s.layover = { start: now - 4 * 60000, min: 15, scale: 1 }; }, true);

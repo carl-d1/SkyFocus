@@ -109,7 +109,42 @@
     } catch (e) { return (date || new Date()).getHours(); }
   }
 
+  /* ---------- holding pattern (racetrack) ----------
+     Local frame at the hold fix: u runs along the inbound heading, v to the right (standard right turns).
+     The loop: straight leg along u, right half-turn, straight back, right half-turn to the fix. */
+  function offsetKm(p, eastKm, northKm) {
+    return { lat: p.lat + northKm / 111.32, lon: p.lon + eastKm / (111.32 * Math.max(0.2, Math.cos(p.lat * D2R))) };
+  }
+  function holdLocal(L, r, s) {
+    var P = 2 * L + 2 * Math.PI * r, d = (((s % 1) + 1) % 1) * P;
+    if (d < L) return { u: d, v: 0, dir: 0 };
+    d -= L;
+    if (d < Math.PI * r) { var a = d / r; return { u: L + r * Math.sin(a), v: r - r * Math.cos(a), dir: a * R2D }; }
+    d -= Math.PI * r;
+    if (d < L) return { u: L - d, v: 2 * r, dir: 180 };
+    d -= L;
+    var b = d / r;
+    return { u: -r * Math.sin(b), v: r + r * Math.cos(b), dir: 180 + b * R2D };
+  }
+  // Position and heading a fraction `phase` (0..1) around the racetrack.
+  function holdPos(fix, headingDeg, sizeKm, phase) {
+    var L = sizeKm, r = sizeKm / 3, h = headingDeg * D2R, q = holdLocal(L, r, phase);
+    var east = q.u * Math.sin(h) + q.v * Math.cos(h), north = q.u * Math.cos(h) - q.v * Math.sin(h);
+    var p = offsetKm(fix, east, north);
+    p.heading = (headingDeg + q.dir + 360) % 360;
+    return p;
+  }
+  function holdLoop(fix, headingDeg, sizeKm, n) {
+    var pts = [];
+    n = n || 64;
+    for (var i = 0; i <= n; i++) pts.push(holdPos(fix, headingDeg, sizeKm, i / n));
+    return pts;
+  }
+  // Racetrack size that stays visible at route scale: 6% of the route, 40 to 260 km.
+  function holdSizeKm(routeKm) { return Math.max(40, Math.min(260, routeKm * 0.06)); }
+
   SF.geo = {
+    holdPos: holdPos, holdLoop: holdLoop, holdSizeKm: holdSizeKm, offsetKm: offsetKm,
     distanceKm: distanceKm, bearing: bearing, interpolate: interpolate, arcPoints: arcPoints,
     realisticMinutes: realisticMinutes, sun: sun, nightPolygon: nightPolygon,
     localTime: localTime, localHour: localHour,

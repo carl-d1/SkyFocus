@@ -109,18 +109,23 @@
         if (mapObj) mapObj.api.destroy();
         var host = $("flightMap");
         host.innerHTML = "";
-        mapObj = SF.maps.create(host, mode, { camera: camera, planeSize: 34, label: "Live flight map, " + A.city + " to " + B.city, insets: insets });
+        mapObj = SF.maps.create(host, mode, { camera: camera, planeSize: 34, label: "Live flight map, " + A.city + " to " + B.city, insets: insets, onMode: showBadge });
         mapObj.api.setRoute(A, B);
         var st = SF.flight.status(SF.store.state.activeFlight);
-        mapObj.api.setProgress(st.routeFrac);
+        mapObj.api.setProgress(st.routeFrac, st.hold ? { hold: st.hold } : null);
         mapObj.api.setCamera(camera, true);
         ui.$$("#mapModes .seg-btn").forEach(function (b) {
           var on = b.getAttribute("data-mode") === mode;
           b.classList.toggle("on", on);
           b.setAttribute("aria-pressed", on);
         });
+        showBadge(mapObj.mode);
+      }
+      // The built-in map stands in while a library loads, and stays when one cannot load.
+      function showBadge(actual) {
         var badge = $("mapBadge");
-        badge.hidden = mapObj.mode === mode;
+        if (!badge) return;
+        badge.hidden = actual === mode;
         badge.textContent = "BUILT-IN" + (SF.forceOffline ? " · OFFLINE" : "");
       }
       function setMode(m) {
@@ -222,7 +227,7 @@
         $("holdBtn").classList.toggle("btn-signal", st.paused);
         $("holdBtn").disabled = !st.paused && used >= max;
         root.querySelector(".strip").classList.toggle("is-holding", st.paused);
-        if (mapObj) mapObj.api.setProgress(st.routeFrac);
+        if (mapObj) mapObj.api.setProgress(st.routeFrac, st.hold ? { hold: st.hold } : null);
       }
       offs.push(SF.engine.on("tick", render));
       offs.push(SF.engine.on("hold", function () { render(SF.flight.status(SF.store.state.activeFlight)); }));

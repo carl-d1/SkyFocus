@@ -22,7 +22,26 @@
       "<div><dt>Task status</dt><dd>" + (OUTCOME[rec.outcome] || "Not recorded") + "</dd></div>" +
       (rec.note ? '<div class="wide"><dt>Remarks</dt><dd>' + SF.esc(rec.note) + "</dd></div>" : "") +
       "</dl>"));
-    ui.modal({ title: "Flight " + rec.flightNo + " · " + SF.fmt.date(new Date(rec.startAt)), body: body, doc: true });
+    var holds = (rec.track && rec.track.holds) || [];
+    var panel = ui.h('<section class="glass track-panel" aria-label="Track flown">' +
+      '<header><span class="label">Track flown</span><span class="readout readout-sm">' + (holds.length ? holds.length + " HOLD" + (holds.length > 1 ? "S" : "") : "NO HOLDS") + "</span>" +
+      '<button type="button" class="btn small" id="replayBtn">' + SF.icon("play") + "<span>Replay</span></button></header>" +
+      '<div class="track-map"></div></section>');
+    body.appendChild(panel);
+    var pts = SF.flight.trackPoints(rec, 48, SF.flight.chartHoldKm(rec));
+    var chart = null;
+    // build after the dialog is in the document so the map can measure itself
+    setTimeout(function () {
+      chart = SF.FallbackMap(panel.querySelector(".track-map"), { camera: "route", showPlane: false, night: false, padPx: 24, planeSize: 24, label: "Track flown" });
+      chart.setRoute(SF.airport(rec.from), SF.airport(rec.to));
+      chart.setProgress(rec.track ? rec.track.routeFrac : rec.flownKm / Math.max(1, rec.distanceKm));
+      chart.setTrack(pts);
+      chart.setMarkers([{ lat: SF.airport(rec.from).lat, lon: SF.airport(rec.from).lon, label: rec.from, cls: "m-from", px: 4.5 },
+        { lat: SF.airport(rec.to).lat, lon: SF.airport(rec.to).lon, label: rec.to, cls: "m-to", px: 4.5 }].concat(SF.flight.holdMarkers(rec)));
+      if (!ui.reducedMotion()) chart.replay(pts, 3500);
+    }, 0);
+    panel.querySelector("#replayBtn").onclick = function () { if (chart) chart.replay(pts, 3500); };
+    ui.modal({ title: "Flight " + rec.flightNo + " · " + SF.fmt.date(new Date(rec.startAt)), body: body, doc: true, onDestroy: function () { if (chart) chart.destroy(); } });
   };
 
   SF.views.logbook = {

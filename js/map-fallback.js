@@ -44,6 +44,8 @@
     var routesG = el("g", { class: "atlas-routes" }, svg);
     var remain = el("path", { class: "atlas-remain", "vector-effect": "non-scaling-stroke", fill: "none" }, svg);
     var flown = el("path", { class: "atlas-flown", "vector-effect": "non-scaling-stroke", fill: "none" }, svg);
+    var trackPath = el("path", { class: "atlas-track", "vector-effect": "non-scaling-stroke", fill: "none" }, svg);
+    var holdPath = el("path", { class: "atlas-hold", "vector-effect": "non-scaling-stroke", fill: "none" }, svg);
     var dots = el("g", { class: "atlas-dots" }, svg);
     var labels = el("g", { class: "atlas-labels" }, svg);
     var planeG = el("g", { class: "atlas-plane" }, svg);
@@ -205,24 +207,55 @@
           else { drawT = 1; drawRoute(); svg.classList.add("arrived"); }
         })(performance.now());
       },
-      clearRoute: function () { if (drawRaf) cancelAnimationFrame(drawRaf); drawT = 1; route = null; markers = []; drawMarkers(); drawRoute(); refreshCamera(true); },
+      clearRoute: function () { holdPath.setAttribute("d", ""); if (drawRaf) cancelAnimationFrame(drawRaf); drawT = 1; route = null; markers = []; drawMarkers(); drawRoute(); refreshCamera(true); },
       // frac = fraction of route distance flown
-      setProgress: function (frac) {
+      setProgress: function (frac, extra) {
         if (!route) return;
         progress = Math.max(0, Math.min(1, frac));
         var p = SF.geo.interpolate(route.from, route.to, progress);
         var ref = route.pts[Math.round(progress * (route.pts.length - 1))].lon;
-        while (p.lon - ref > 180) p.lon -= 360;
-        while (p.lon - ref < -180) p.lon += 360;
-        var ahead = SF.geo.interpolate(route.from, route.to, Math.min(1, progress + 0.002));
-        var behind = SF.geo.interpolate(route.from, route.to, Math.max(0, progress - 0.002));
-        var dx = ahead.lon - behind.lon;
-        if (dx > 180) dx -= 360; if (dx < -180) dx += 360;
-        var dy = -(ahead.lat - behind.lat);
+        function near(q) { while (q.lon - ref > 180) q.lon -= 360; while (q.lon - ref < -180) q.lon += 360; return q; }
+        near(p);
+        var ahead, behind;
+        var hold = extra && extra.hold;
+        if (hold) {
+          // Fly the racetrack at the hold fix instead of stopping.
+          var hp = near(SF.geo.holdPos(p, hold.heading, hold.sizeKm, hold.phase));
+          ahead = near(SF.geo.holdPos(p, hold.heading, hold.sizeKm, hold.phase + 0.004));
+          behind = near(SF.geo.holdPos(p, hold.heading, hold.sizeKm, hold.phase - 0.004));
+          holdPath.setAttribute("d", pathFrom(SF.geo.holdLoop(p, hold.heading, hold.sizeKm, 72).map(near)));
+          p = hp;
+        } else {
+          ahead = near(SF.geo.interpolate(route.from, route.to, Math.min(1, progress + 0.002)));
+          behind = near(SF.geo.interpolate(route.from, route.to, Math.max(0, progress - 0.002)));
+          holdPath.setAttribute("d", "");
+        }
+        var dx = ahead.lon - behind.lon, dy = -(ahead.lat - behind.lat);
         if (Math.abs(dx) + Math.abs(dy) > 1e-9) heading = Math.atan2(dx, -dy) * 180 / Math.PI;
         pos = p;
         drawRoute();
         if (camera === "follow") refreshCamera(false); else applyVB();
+      },
+      // The path actually flown (holds included), drawn over everything else.
+      setTrack: function (pts) {
+        trackPath.setAttribute("d", pts && pts.length ? pathFrom(pts) : "");
+      },
+      // Fly the plane along a track once (logbook replay).
+      replay: function (pts, ms) {
+        if (!pts || pts.length < 2) return;
+        ms = ms || 4000;
+        planeG.style.display = "";
+        var t0 = performance.now();
+        (function step(now) {
+          if (destroyed) return;
+          var k = Math.min(1, (now - t0) / ms), i = Math.min(pts.length - 2, Math.floor(k * (pts.length - 1)));
+          var a = pts[i], b = pts[i + 1];
+          pos = { lat: a.lat, lon: a.lon };
+          heading = Math.atan2(b.lon - a.lon, b.lat - a.lat) * 180 / Math.PI;
+          trackPath.setAttribute("d", pathFrom(pts.slice(0, i + 2)));
+          applyVB();
+          if (k < 1) requestAnimationFrame(step);
+        })(t0);
       },
       setCamera: function (mode, instant) { camera = mode; refreshCamera(instant); },
       // Static overlay of many routes (logbook/routes map).
@@ -249,6 +282,9 @@
     drawNight();
     nightTimer = setInterval(drawNight, 60000);
     var ro = window.ResizeObserver ? new ResizeObserver(function () { refreshCamera(true); }) : null;
+    // Fit again once the surrounding layout has settled (charts are created before layout).
+    requestAnimationFrame(function () { if (!destroyed) refreshCamera(true); });
+    setTimeout(function () { if (!destroyed) refreshCamera(true); }, 120);
     if (ro) ro.observe(container);
     refreshCamera(true);
     return api;

@@ -232,7 +232,7 @@ body.has-stage .backdrop { display: none; }
 body.fit .main { height: 100vh; }
 
 /* ---------- top bar: one shared row for every overlay ---------- */
-.topbar { position: relative; z-index: 15; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--s-4); height: var(--topbar-h); }
+.topbar { position: relative; z-index: 15; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s-4); height: var(--topbar-h); }
 .tb-left, .tb-right { display: flex; align-items: center; gap: var(--s-3); min-width: 0; height: 100%; }
 .tb-right { justify-content: flex-end; }
 .tb-title { font-size: var(--fs-h1); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }

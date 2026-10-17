@@ -250,9 +250,9 @@ kbd { display: inline-block; min-width: 32px; text-align: center; font-family: v
    STATUS PILL (top bar centre): announcements and toasts
    ========================================================= */
 .tb-status { position: relative; }
+.tb-status { align-items: center; overflow: hidden; }
 .status-pill {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: var(--s-3); height: 48px; padding: 0 var(--s-5) 0 var(--s-2); border-radius: 999px; max-width: 640px; width: max-content;
+  display: flex; align-items: center; gap: var(--s-3); height: 48px; padding: 0 var(--s-5) 0 var(--s-2); border-radius: 999px; max-width: min(640px, 100%); min-width: 0; flex: none;
   animation: statusIn .4s var(--spring); --glass-alpha: .58;
 }
 .status-pill.out { animation: statusOut .16s ease-in forwards; }
@@ -261,8 +261,9 @@ kbd { display: inline-block; min-width: 32px; text-align: center; font-family: v
 .status-pill .st-title { font-family: var(--font-sign); font-size: 15px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
 .status-pill .st-text { font-size: var(--fs-sm); color: var(--glass-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-pill.toast .st-text { color: var(--glass-text); font-family: var(--font-sign); font-size: 15px; font-weight: 500; letter-spacing: .03em; }
-@keyframes statusIn { 0% { opacity: 0; transform: translate(-50%, -12px) scale(.96); } 100% { opacity: 1; transform: translateX(-50%); } }
-@keyframes statusOut { to { opacity: 0; transform: translate(-50%, -8px); } }
+@keyframes statusIn { 0% { opacity: 0; transform: translateY(-12px) scale(.96); } 100% { opacity: 1; transform: none; } }
+@keyframes statusOut { to { opacity: 0; transform: translateY(-8px); } }
+.status-pill.out { position: absolute; }
 
 /* file:// notice: a row at the top of the main column */
 body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr); }
@@ -420,3 +421,51 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
 .swatches { display: flex; gap: var(--s-2); flex-wrap: wrap; }
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--c); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 3px rgba(0, 0, 0, .3); transition: transform .3s var(--spring); }
 .swatch.on { box-shadow: 0 0 0 2px var(--glass-text), inset 0 1px 0 rgba(255, 255, 255, .45); transform: scale(1.08); }
+
+/* =========================================================
+   MAP PROVIDERS: Leaflet (classic, satellite), three.js globe, built-in globe
+   ========================================================= */
+.leaflet-host, .globe-host { position: absolute; inset: 0; }
+.leaflet-container { background: var(--map-ocean); font-family: var(--font-body); outline: none; }
+.leaflet-bottom.leaflet-left .leaflet-control-attribution { margin-left: calc(var(--rail-w) + var(--gutter)); }
+.leaflet-control-attribution { background: rgba(10, 11, 14, .55) !important; color: rgba(243, 240, 232, .6) !important; font-size: 10px; padding: 2px var(--s-2) !important; border-radius: 6px 6px 0 0; }
+.leaflet-control-attribution a { color: rgba(243, 240, 232, .8) !important; }
+[data-theme="light"] .leaflet-control-attribution { background: rgba(250, 247, 240, .7) !important; color: rgba(29, 28, 25, .7) !important; }
+[data-theme="light"] .leaflet-control-attribution a { color: #1d1c19 !important; }
+.lf-remain { stroke: var(--map-route); stroke-width: 1.5; stroke-dasharray: 5 5; fill: none; }
+.lf-flown { stroke: var(--map-flown); stroke-width: 3; fill: none; }
+.lf-hold { stroke: var(--map-flown); stroke-width: 1.5; stroke-dasharray: 3 4; fill: none; }
+.lf-track { stroke: var(--map-flown); stroke-width: 2.5; fill: none; }
+.lf-routes { stroke: var(--map-flown); stroke-opacity: .55; stroke-width: 1.2; fill: none; }
+.map-satellite .lf-remain { stroke: rgba(255, 255, 255, .85); }
+.lf-plane { background: none; border: 0; }
+.lf-plane svg { transition: transform .25s linear; }
+.lf-plane svg path { fill: #f6f3ec; }
+.lf-plane svg .shadow { fill: rgba(0, 0, 0, .45); }
+[data-theme="light"] .map-classic .lf-plane svg path:not(.shadow) { fill: #1d1c19; }
+.lf-mark { background: none; border: 0; }
+.lf-mark i { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--map-label); box-shadow: 0 0 0 2px var(--map-ocean); }
+.lf-mark.m-to i { background: var(--map-flown); }
+.lf-mark b, .gl-mark b { position: absolute; left: 14px; top: -14px; font-family: var(--font-mono); font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--map-label); text-shadow: 0 0 3px var(--map-ocean), 0 0 3px var(--map-ocean), 0 0 6px var(--map-ocean); }
+.map-satellite .lf-mark b { color: #fff; text-shadow: 0 0 3px #000, 0 0 6px #000; }
+.arrived .lf-mark.m-to i { animation: pulse 1.6s ease-out infinite; }
+.globe-host canvas { display: block; touch-action: none; cursor: grab; }
+.globe-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.gl-mark { position: absolute; left: 0; top: 0; }
+.gl-mark i { display: block; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #f3f0e8; box-shadow: 0 0 0 2px rgba(0, 0, 0, .5); }
+.gl-mark.m-to i { background: #ffc400; }
+.gl-mark b { color: #f3f0e8; text-shadow: 0 0 4px #000, 0 0 8px #000; }
+.atlas-globe { display: block; }
+.atlas-hold { stroke: var(--map-flown); stroke-width: 1.5; stroke-dasharray: 3 4; }
+.atlas-track { stroke: var(--map-flown); stroke-width: 2.5; stroke-linejoin: round; }
+
+/* Paper route chart: the built-in map printed in ink on the arrival report */
+.chart {
+  --map-ocean: #e8e1d2; --map-land: #f7f3ea; --map-coast: #9a907c; --map-grat: rgba(29, 28, 25, .07);
+  --map-route: rgba(29, 28, 25, .45); --map-flown: #1d1c19; --map-label: #1d1c19; --map-night: transparent;
+  position: relative; border: 1px solid var(--paper-rule); overflow: hidden;
+}
+.chart .atlas-track { stroke: var(--paper-red); stroke-width: 2; }
+.chart .atlas-hold { stroke: var(--paper-red); }
+.atlas-dots circle.m-hold, .chart .atlas-dots circle.m-hold { fill: var(--paper-red); }
+.atlas-labels text.m-hold { fill: var(--paper-red); }

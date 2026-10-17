@@ -5,6 +5,7 @@
   var SF = (window.SF = window.SF || {});
   var MAX_HOLDS = 2;
   var HOLD_MAX_MS = 10 * 60000;
+  var HOLD_LAP_MS = 4 * 60000;   // one racetrack lap, in flight time (a real hold is about 4 min)
 
   /* ---------- flight profile ---------- */
   var T_TAXI = 0.03, T_CLIMB = 0.12, T_TOD = 0.85, T_FLARE = 0.98;
@@ -113,7 +114,8 @@
         pausedTotal: 0, pauseStart: null, holds: 0,
         turbulence: 0, awayMs: 0, awayStart: null,
         airplaneMode: false,
-        milestones: {}
+        milestones: {},
+        track: { holds: [] }
       };
     },
 
@@ -121,6 +123,7 @@
     normalize: function (af, now) {
       if (af.pauseStart && now - af.pauseStart > HOLD_MAX_MS / af.timeScale) {
         af.pausedTotal += HOLD_MAX_MS / af.timeScale;
+        flight.closeHold(af, af.pauseStart + HOLD_MAX_MS / af.timeScale);
         af.pauseStart = null;
         return true;
       }
@@ -156,6 +159,12 @@
         phase: af.pauseStart ? "Holding" : phase(p),
         paused: !!af.pauseStart,
         holdLeftMs: af.pauseStart ? Math.max(0, HOLD_MAX_MS / af.timeScale - (now - af.pauseStart)) : 0,
+        // While holding, the plane flies a racetrack at the hold fix instead of stopping.
+        hold: af.pauseStart ? {
+          phase: ((now - af.pauseStart) * af.timeScale / HOLD_LAP_MS) % 1,
+          heading: flight.openHold(af) ? flight.openHold(af).heading : 0,
+          sizeKm: SF.geo.holdSizeKm(af.distanceKm)
+        } : null,
         eta: new Date(now + (af.pauseStart ? remainingReal + Math.max(0, HOLD_MAX_MS / af.timeScale - (now - af.pauseStart)) : remainingReal)),
         done: p >= 1
       };
@@ -177,8 +186,68 @@
         holds: af.holds, turbulence: af.turbulence, awayMs: Math.round(af.awayMs),
         airplaneMode: af.airplaneMode,
         timeScale: af.timeScale,
-        outcome: null, note: "", newStamp: false
+        outcome: null, note: "", newStamp: false,
+        // The flown track: route progress plus every hold, enough to redraw the real path.
+        track: {
+          routeFrac: Math.round(st.routeFrac * 10000) / 10000,
+          holds: ((af.track && af.track.holds) || []).map(function (h) {
+            return { frac: h.frac, heading: h.heading, durationMs: Math.round(h.durationMs || 0), laps: Math.round((h.laps || 0) * 100) / 100 };
+          })
+        }
       }, extra || {});
+    },
+
+    openHold: function (af) {
+      var hs = (af.track && af.track.holds) || [];
+      var h = hs[hs.length - 1];
+      return h && h.end == null ? h : null;
+    },
+    startHold: function (af, now, st) {
+      if (!af.track) af.track = { holds: [] };
+      af.track.holds.push({ frac: st.routeFrac, heading: st.heading, start: now, end: null });
+    },
+    closeHold: function (af, end) {
+      var h = flight.openHold(af);
+      if (!h) return;
+      h.end = end;
+      h.durationMs = Math.max(0, (end - h.start) * af.timeScale);
+      h.laps = h.durationMs / HOLD_LAP_MS;
+    },
+
+    // Points (lat/lon, longitudes unwrapped) of the path actually flown, holds included.
+    // sizeKm: draw holds at this size (charts enlarge them so they read at route scale).
+    trackPoints: function (rec, perLap, sizeKm) {
+      var A = SF.airport(rec.from), B = SF.airport(rec.to);
+      var tr = rec.track || { routeFrac: rec.distanceKm ? rec.flownKm / rec.distanceKm : 1, holds: [] };
+      var end = Math.max(0, Math.min(1, tr.routeFrac));
+      var holds = (tr.holds || []).slice().sort(function (a, b) { return a.frac - b.frac; });
+      var size = sizeKm || SF.geo.holdSizeKm(rec.distanceKm), pts = [], steps = Math.max(8, Math.round(160 * end));
+      var hi = 0;
+      for (var i = 0; i <= steps; i++) {
+        var f = end * i / steps;
+        while (hi < holds.length && holds[hi].frac <= f) {
+          var h = holds[hi++], fix = SF.geo.interpolate(A, B, h.frac);
+          var laps = Math.max(1, Math.min(3, Math.ceil(h.laps || 1)));
+          var n = (perLap || 48) * laps;
+          for (var k = 0; k <= n; k++) { var q = SF.geo.holdPos(fix, h.heading, size, k / (perLap || 48)); q.hold = true; pts.push(q); }
+        }
+        pts.push(SF.geo.interpolate(A, B, f));
+      }
+      // keep longitudes continuous across the antimeridian
+      for (var j = 1; j < pts.length; j++) {
+        while (pts[j].lon - pts[j - 1].lon > 180) pts[j].lon -= 360;
+        while (pts[j].lon - pts[j - 1].lon < -180) pts[j].lon += 360;
+      }
+      return pts;
+    },
+    // Chart helpers: an enlarged hold size and labelled hold markers.
+    chartHoldKm: function (rec) { return Math.max(60, Math.min(600, rec.distanceKm * 0.12)); },
+    holdMarkers: function (rec) {
+      var A = SF.airport(rec.from), B = SF.airport(rec.to);
+      return ((rec.track && rec.track.holds) || []).map(function (h, i) {
+        var p = SF.geo.interpolate(A, B, h.frac);
+        return { lat: p.lat, lon: p.lon, label: "H" + (i + 1), cls: "m-hold", px: 3 };
+      });
     }
   });
 
@@ -258,6 +327,7 @@
       var now = Date.now();
       if (af.pauseStart) {
         SF.store.update(function (s) {
+          flight.closeHold(s.activeFlight, now);
           s.activeFlight.pausedTotal += now - s.activeFlight.pauseStart;
           s.activeFlight.pauseStart = null;
         }, true);
@@ -272,6 +342,7 @@
       }
       if (flight.status(af, now).done) return false;
       SF.store.update(function (s) {
+        flight.startHold(s.activeFlight, now, flight.status(s.activeFlight, now));
         s.activeFlight.pauseStart = now;
         s.activeFlight.holds += 1;
       }, true);
@@ -292,6 +363,7 @@
       var af = engine.active();
       if (!af) return;
       var st = flight.status(af, Date.now());
+      if (af.pauseStart) flight.closeHold(af, Date.now());
       var rec = flight.toRecord(af, "landed", st);
       engine.finish(rec, af.to);
       if (SF.audio && SF.audio.touchdown) SF.audio.touchdown();
@@ -311,6 +383,7 @@
         af.turbulence += 1;
       }
       var st = flight.status(af, now);
+      if (af.pauseStart) flight.closeHold(af, now);
       var rec = flight.toRecord(af, "diverted", st, { divertReason: reason || "manual" });
       engine.finish(rec, af.from);
       engine.emit("diverted", rec);

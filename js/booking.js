@@ -390,7 +390,7 @@
         // When the card sits low (narrow layouts), keep the route above it instead.
         return { left: sheet.getBoundingClientRect().right + gut, top: bar.getBoundingClientRect().bottom + gut, right: right, bottom: gut };
       }
-      mapObj = SF.maps.create($("routeMap"), "atlas", { camera: "route", padPx: 48, planeSize: 22, showPlane: false, label: "Route map", insets: insets });
+      mapObj = SF.maps.create($("routeMap"), "classic", { camera: "route", padPx: 48, planeSize: 22, showPlane: false, label: "Route map", insets: insets });
       setFromLabel(); renderPending(); renderGoal(); renderTags(); renderMode();
       if (preset && SF.airport(preset.to) && preset.to !== sel.from) {
         if (preset.minutes) sel.minutes = preset.minutes;
