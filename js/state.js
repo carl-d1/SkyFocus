@@ -40,7 +40,7 @@
         reminderTime: "09:00",
         landingNotify: true,
         mapMode: "classic",
-        camera: "follow"
+        camera: "route"
       },
       tags: DEFAULT_TAGS.map(function (t) { return Object.assign({}, t); }),
       flights: [],

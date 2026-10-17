@@ -13,43 +13,49 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
-  <link rel="stylesheet" href="css/base.css?v=5">
-  <link rel="stylesheet" href="css/components.css?v=5">
-  <link rel="stylesheet" href="css/views.css?v=5">
+  <link rel="stylesheet" href="css/base.css?v=14">
+  <link rel="stylesheet" href="css/components.css?v=14">
+  <link rel="stylesheet" href="css/views.css?v=14">
 </head>
 <body>
   <a class="skip-link" href="#view">Skip to content</a>
   <div class="backdrop" id="backdrop" aria-hidden="true"></div>
   <div class="app">
-    <nav id="nav" class="nav" aria-label="Main"></nav>
-    <main id="view" class="view" tabindex="-1"></main>
+    <nav id="nav" class="nav glass" aria-label="Main"></nav>
+    <div class="main">
+      <header class="topbar" id="topbar">
+        <div class="tb-left" id="tbLeft"></div>
+        <div class="tb-status" id="tbStatus"></div>
+        <div class="tb-right" id="tbRight"></div>
+      </header>
+      <main id="view" class="view" tabindex="-1"></main>
+    </div>
   </div>
-  <div id="announce" class="announce glass" aria-hidden="true"></div>
-  <div id="toasts" class="toasts" aria-live="polite"></div>
   <div id="live" class="sr-only" aria-live="polite"></div>
 
   <!-- Data -->
-  <script src="js/data-airports.js?v=5"></script>
-  <script src="js/data-world.js?v=5"></script>
+  <script src="js/data-airports.js?v=14"></script>
+  <script src="js/data-world.js?v=14"></script>
   <!-- Core -->
-  <script src="js/storage.js?v=5"></script>
-  <script src="js/geo.js?v=5"></script>
-  <script src="js/state.js?v=5"></script>
-  <script src="js/ui.js?v=5"></script>
-  <script src="js/glass.js?v=5"></script>
-  <script src="js/stats.js?v=5"></script>
-  <script src="js/timer.js?v=5"></script>
+  <script src="js/storage.js?v=14"></script>
+  <script src="js/geo.js?v=14"></script>
+  <script src="js/state.js?v=14"></script>
+  <script src="js/ui.js?v=14"></script>
+  <script src="js/glass.js?v=14"></script>
+  <script src="js/stats.js?v=14"></script>
+  <script src="js/timer.js?v=14"></script>
   <!-- Maps -->
-  <script src="js/map-fallback.js?v=5"></script>
-  <script src="js/map-core.js?v=5"></script>
+  <script src="js/map-fallback.js?v=14"></script>
+  <script src="js/map-core.js?v=14"></script>
   <!-- Views -->
-  <script src="js/onboarding.js?v=5"></script>
-  <script src="js/booking.js?v=5"></script>
-  <script src="js/boarding-pass.js?v=5"></script>
-  <script src="js/inflight.js?v=5"></script>
-  <script src="js/arrival.js?v=5"></script>
-  <script src="js/logbook.js?v=5"></script>
-  <script src="js/settings.js?v=5"></script>
-  <script src="js/main.js?v=5"></script>
+  <script src="js/onboarding.js?v=14"></script>
+  <script src="js/booking.js?v=14"></script>
+  <script src="js/boarding-pass.js?v=14"></script>
+  <script src="js/inflight.js?v=14"></script>
+  <script src="js/arrival.js?v=14"></script>
+  <script src="js/logbook.js?v=14"></script>
+  <script src="js/settings.js?v=14"></script>
+  <script src="js/glass-lab.js?v=14"></script>
+  <script src="js/main.js?v=14"></script>
 </body>
 </html>

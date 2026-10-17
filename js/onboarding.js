@@ -10,13 +10,14 @@
   ];
 
   SF.views.welcome = {
+    fit: true,
     mount: function (root) {
       var data = { name: "", home: null, minutes: 25 };
       root.innerHTML =
         '<div class="onboard">' +
         '<section aria-label="How SkyFocus works">' +
         '<div class="ob-brand"><img src="assets/logo.svg" alt="" width="56" height="56"><h1>SkyFocus</h1></div>' +
-        '<p class="label" style="margin-bottom:.6rem">Operating procedure</p>' +
+        '<p class="label">Operating procedure</p>' +
         '<ol class="ob-steps">' + STEPS.map(function (s) {
           return '<li><span class="n">' + s[0] + "</span><div><h3>" + s[1] + "</h3><p>" + s[2] + "</p></div></li>";
         }).join("") + "</ol></section>" +

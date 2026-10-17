@@ -43,8 +43,7 @@
     return c.toDataURL("image/png");
   }
 
-  function filterFor(w, h, r) {
-    var q = quality(), scale = SCALE[q] || 0;
+  function filterFor(w, h, r, scale) {
     var key = Math.round(w / 8) * 8 + "x" + Math.round(h / 8) * 8 + "r" + r + "s" + scale;
     if (cache[key]) return cache[key];
     var W = Math.round(w / 8) * 8 || 8, H = Math.round(h / 8) * 8 || 8;
@@ -76,12 +75,24 @@
     var rect = el.getBoundingClientRect();
     if (rect.width < 24 || rect.height < 16) return;
     var r = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
-    var id = filterFor(rect.width, rect.height, Math.round(r));
-    el.style.backdropFilter = "url(#" + id + ") blur(var(--glass-blur)) saturate(1.7) brightness(1.04)";
+    // A container can set its own refraction strength (glass lab variants): data-refract="40".
+    var host = el.closest("[data-refract]");
+    var scale = host ? +host.getAttribute("data-refract") : SCALE[quality()] || 0;
+    if (!scale) { el.style.backdropFilter = ""; el.style.webkitBackdropFilter = ""; return; }
+    var id = filterFor(rect.width, rect.height, Math.round(r), scale);
+    el.style.backdropFilter = "url(#" + id + ") blur(var(--glass-blur)) saturate(var(--glass-sat)) brightness(var(--glass-bright))";
+  }
+
+  // Dev guard: materials must not nest (DESIGN.md).
+  function checkMaterials() {
+    if (!SF.dev) return;
+    var bad = document.querySelectorAll(".glass .paper, .paper .glass");
+    if (bad.length) console.warn("SkyFocus material rule: paper and glass are nested", bad);
   }
 
   function scan(root) {
     if (!ro) return;
+    checkMaterials();
     (root || document).querySelectorAll(".glass").forEach(function (el) {
       if (observed.has(el)) return;
       observed.add(el);
@@ -110,6 +121,7 @@
       defs = document.createElementNS(NS, "defs");
       svg.appendChild(defs);
       document.body.appendChild(svg);
+      if (SF.dev) document.documentElement.setAttribute("data-dev", "");
       SF.glass.setQuality(quality());
       if (window.ResizeObserver) ro = new ResizeObserver(function (entries) { entries.forEach(function (en) { apply(en.target); }); });
       scan();

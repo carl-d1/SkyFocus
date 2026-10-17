@@ -78,6 +78,7 @@
   var DND = ["Phone silenced", "Other tabs closed", "Water ready", "Materials open"];
 
   SF.views.board = {
+    fit: true,
     mount: function (root) {
       var af = SF.store.state.activeFlight;
       if (!af) { ui.go("book"); return; }
@@ -88,9 +89,9 @@
       self._timers = timers;
       var guard = { off: "Off", warn: "Warn on exit", divert: "Divert after " + s.strictMinutes + " min away" }[s.strictness];
 
+      ui.topbar(ui.topbarTitle("Gate " + af.gate + " · " + af.from + " → " + af.to),
+        '<button class="btn" id="backBook">' + SF.icon("x") + "<span>Change booking</span></button>");
       root.innerHTML =
-        '<header class="page-head"><div><p class="label">Gate ' + af.gate + " · Boarding</p><h1>" + SF.esc(af.fromCity) + " to " + SF.esc(af.toCity) + "</h1></div>" +
-        '<button class="btn" id="backBook">' + SF.icon("x") + "<span>Change booking</span></button></header>" +
         '<div class="gate-grid"><div class="pass-wrap" id="passWrap"></div>' +
         '<aside class="glass gate-side">' +
         (s.dndChecklist ? '<h3>Pre-departure check</h3><ul class="checklist" id="dnd">' + DND.map(function (d, i) {
@@ -104,7 +105,7 @@
 
       var pass = SF.renderPass(af);
       root.querySelector("#passWrap").appendChild(pass);
-      root.querySelector("#backBook").onclick = function () { SF.engine.cancel(); ui.go("book"); };
+      document.getElementById("backBook").onclick = function () { SF.engine.cancel(); ui.go("book"); };
 
       root.querySelector("#boardBtn").onclick = function () {
         var ap = root.querySelector("#apMode").checked;

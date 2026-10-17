@@ -125,7 +125,7 @@
   ui.render = function () {
     var r = ui.parseHash();
     var st = SF.store.state;
-    if (!st.profile.onboarded && r.name !== "welcome") { ui.go("welcome"); return; }
+    if (!st.profile.onboarded && r.name !== "welcome" && r.name !== "lab") { ui.go("welcome"); return; }
     if (st.activeFlight && st.activeFlight.started && r.name === "book") { ui.go("flight"); return; }
     var view = SF.views[r.name];
     if (!view) { ui.go("book"); return; }
@@ -137,15 +137,29 @@
     currentName = r.name;
     current = view;
     document.body.setAttribute("data-route", r.name);
+    // Layout flags: "stage" = full-bleed map behind the shell, "fit" = exactly one viewport tall.
+    document.body.classList.toggle("has-stage", !!view.stage);
+    document.body.classList.toggle("fit", !!(view.fit || view.stage));
+    ui.topbar("", "");
     try { view.mount(root, r.args); } catch (e) { console.error(e); root.innerHTML = '<div class="glass empty"><p class="mono">VIEW FAILED TO LOAD.</p></div>'; }
     ui.updateNav();
     root.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   };
 
+  // Fill the shared top bar's side slots. Strings or nodes.
+  ui.topbar = function (left, right) {
+    [["#tbLeft", left], ["#tbRight", right]].forEach(function (x) {
+      var el = ui.$(x[0]);
+      if (!el) return;
+      el.innerHTML = "";
+      if (typeof x[1] === "string") el.innerHTML = x[1]; else if (x[1]) el.appendChild(x[1]);
+    });
+  };
+  ui.topbarTitle = function (text) { return '<h1 class="tb-title">' + text + "</h1>"; };
+
   ui.buildNav = function () {
     var nav = ui.$("#nav");
-    nav.classList.add("glass");
     nav.innerHTML =
       '<a class="brand" href="#/book" aria-label="SkyFocus home" title="SkyFocus"><img src="assets/logo.svg" alt="" width="34" height="34"></a>' +
       '<ul class="nav-list">' + NAV.map(function (n) {
@@ -178,17 +192,24 @@
     if (!g || !SF.stats) return;
     var today = SF.stats.todayMinutes();
     var goal = SF.store.state.settings.dailyGoalMin || 120;
-    g.innerHTML = ui.ring(today / goal, 40, 3.5, "Daily goal " + Math.round(Math.min(1, today / goal) * 100) + "%") + '<small>Goal</small><b>' + Math.round(Math.min(9.99, today / goal) * 100) + "%</b>";
+    g.innerHTML = ui.ring(today / goal, 48, 4, "Daily goal " + Math.round(today / goal * 100) + "%") + '<small>Goal</small><b>' + Math.round(today / goal * 100) + "%</b>";
     g.title = SF.fmt.dur(today) + " of " + SF.fmt.dur(goal) + " today";
   };
 
   /* ---------- progress ring ---------- */
+  // Over 100%: the outer ring is full and glows, and a second lap fills on an inner track.
   ui.ring = function (frac, size, stroke, label) {
-    frac = Math.max(0, Math.min(1, frac || 0));
-    var r = (size - stroke) / 2, c = 2 * Math.PI * r;
-    return '<svg class="ring" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" role="img" aria-label="' + (label || Math.round(frac * 100) + "% complete") + '">' +
-      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" class="ring-bg" stroke-width="' + stroke + '"/>' +
-      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" class="ring-fg" stroke-width="' + stroke + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + c * (1 - frac) + '" transform="rotate(-90 ' + size / 2 + " " + size / 2 + ')"/></svg>';
+    frac = Math.max(0, frac || 0);
+    var lap1 = Math.min(1, frac), lap2 = Math.max(0, Math.min(1, frac - 1));
+    var h = size / 2, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    var r2 = r - stroke - 1.5, c2 = 2 * Math.PI * r2;
+    function arc(rad, circ, f, cls) {
+      return '<circle cx="' + h + '" cy="' + h + '" r="' + rad + '" class="' + cls + '" stroke-width="' + stroke + '" stroke-dasharray="' + circ + '" stroke-dashoffset="' + circ * (1 - f) + '" transform="rotate(-90 ' + h + " " + h + ')"/>';
+    }
+    return '<svg class="ring' + (frac >= 1 ? " over" : "") + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" role="img" aria-label="' + (label || Math.round(frac * 100) + "% complete") + '">' +
+      '<circle cx="' + h + '" cy="' + h + '" r="' + r + '" class="ring-bg" stroke-width="' + stroke + '"/>' +
+      arc(r, c, lap1, "ring-fg") +
+      (lap2 > 0 ? arc(r2, c2, lap2, "ring-fg ring-lap2") : "") + "</svg>";
   };
 
   /* ---------- modals ---------- */
@@ -198,7 +219,7 @@
 
   ui.modal = function (opts) {
     var prevFocus = document.activeElement;
-    var wrap = ui.h('<div class="modal-wrap" role="presentation"><div class="modal glass ' + (opts.cls || "") + '" role="dialog" aria-modal="true" aria-labelledby="mt-' + modalStack.length + '">' +
+    var wrap = ui.h('<div class="modal-wrap" role="presentation"><div class="modal ' + (opts.doc ? "modal-doc " : "glass ") + (opts.cls || "") + '" role="dialog" aria-modal="true" aria-labelledby="mt-' + modalStack.length + '">' +
       (opts.title ? '<header class="modal-head"><h2 id="mt-' + modalStack.length + '">' + opts.title + "</h2>" +
         (opts.dismissable === false ? "" : '<button class="btn icon-only small" data-close aria-label="Close">' + SF.icon("x") + "</button>") + "</header>" : "") +
       '<div class="modal-body"></div><footer class="modal-actions"></footer></div></div>');
@@ -259,24 +280,25 @@
   };
 
   /* ---------- toasts & announcements ---------- */
-  ui.toast = function (msg, icon, ms) {
-    var host = ui.$("#toasts");
-    var t = ui.h('<div class="toast glass" role="status">' + SF.icon(icon || "info") + "<span>" + msg + "</span></div>");
-    host.appendChild(t);
-    setTimeout(function () { t.classList.add("out"); setTimeout(function () { t.remove(); }, 400); }, ms || 3600);
-  };
-
-  var annTimer = null;
+  // One status line in the centre of the top bar. Announcements and toasts share it, newest wins,
+  // so messages never cover content.
+  var statusTimer = null;
+  function showStatus(title, text, icon, ms, kind) {
+    var host = ui.$("#tbStatus");
+    if (!host) return;
+    var el = ui.h('<div class="status-pill glass ' + (kind || "") + '" role="status">' +
+      '<span class="st-icon">' + SF.icon(icon || "info") + "</span>" +
+      (title ? '<b class="st-title">' + title + "</b>" : "") + '<span class="st-text">' + text + "</span></div>");
+    var old = host.firstElementChild;
+    if (old) { old.classList.add("out"); setTimeout(function () { old.remove(); }, 160); }
+    host.appendChild(el);
+    ui.$("#live").textContent = (title ? title + ". " : "") + text;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { el.classList.add("out"); setTimeout(function () { el.remove(); }, 160); }, ms);
+  }
+  ui.toast = function (msg, icon, ms) { showStatus("", msg, icon, ms || 3600, "toast"); };
   ui.announce = function (title, text, icon) {
-    var el = ui.$("#announce");
-    el.innerHTML = '<div class="ann-icon">' + SF.icon(icon || "info") + '</div><div><b>' + title + "</b><span>" + text + "</span></div>";
-    el.setAttribute("data-time", new Date().toISOString().slice(11, 16) + "Z");
-    el.classList.remove("show");
-    void el.offsetWidth;
-    el.classList.add("show");
-    ui.$("#live").textContent = title + ". " + text;
-    clearTimeout(annTimer);
-    annTimer = setTimeout(function () { el.classList.remove("show"); }, 7000);
+    showStatus(title, text, icon, 7000, "announce");
     if (SF.audio && SF.audio.chime) SF.audio.chime();
   };
 
@@ -453,7 +475,11 @@
     b.querySelector("button").addEventListener("click", function () {
       SF.store.update(function (s) { s.ui.fileBannerDismissed = true; });
       b.remove();
+      document.body.classList.remove("has-banner");
     });
-    document.body.insertBefore(b, document.body.firstChild);
+    // A row at the top of the main column, so it never overlaps content.
+    var main = ui.$(".main");
+    main.insertBefore(b, main.firstChild);
+    document.body.classList.add("has-banner");
   };
 })();

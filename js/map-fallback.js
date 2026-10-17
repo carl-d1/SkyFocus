@@ -59,39 +59,44 @@
     var raf = null, destroyed = false, nightTimer = null;
     var markers = [];
 
-    function aspect() {
-      var r = container.getBoundingClientRect();
-      return r.width > 10 && r.height > 10 ? r.width / r.height : 2;
-    }
     function pxPerUnit() {
       var r = container.getBoundingClientRect();
       // preserveAspectRatio meet: scale is the smaller ratio
       return Math.min(r.width / vb.w, r.height / vb.h) || 1;
     }
+    // Free area of the container in px, after panels that sit on top of the map (opts.insets).
+    function inner() {
+      var r = container.getBoundingClientRect();
+      var W = r.width > 10 ? r.width : 800, H = r.height > 10 ? r.height : 450;
+      var ins = (opts.insets && opts.insets()) || {};
+      var l = ins.left || 0, t = ins.top || 0, rr = ins.right || 0, b = ins.bottom || 0;
+      var iw = Math.max(80, W - l - rr), ih = Math.max(80, H - t - b);
+      return { W: W, H: H, l: l, t: t, iw: iw, ih: ih };
+    }
+    // Fit a lon/lat box (y = -lat) into the free area with `pad` px of breathing room.
     function fit(minX, minY, maxX, maxY, pad) {
-      var w = Math.max(maxX - minX, 8), h = Math.max(maxY - minY, 5);
-      w *= 1 + pad; h *= 1 + pad;
-      var a = aspect();
-      if (w / h > a) h = w / a; else w = h * a;
+      var f = inner();
+      var bw = Math.max(maxX - minX, 6), bh = Math.max(maxY - minY, 4);
+      var s = Math.min((f.iw - 2 * pad) / bw, (f.ih - 2 * pad) / bh);
+      s = Math.max(s, 0.5);
       var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-      return { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+      return { x: cx - (f.l + f.iw / 2) / s, y: cy - (f.t + f.ih / 2) / s, w: f.W / s, h: f.H / s };
     }
     function computeTarget() {
-      var a = aspect();
+      var pad = opts.padPx == null ? 48 : opts.padPx;
       if (camera === "world" || !route) {
-        var w = 360, h = w / a;
-        if (h > 150) { h = 150; w = h * a; }
-        return { x: -w / 2 + (opts.centerLon || 0), y: -84 + (150 - h) / 2 - 0, w: w, h: h };
+        if (route === null && markers.length === 1) {
+          var m = markers[0];
+          return fit(m.lon - 25, -m.lat - 15, m.lon + 25, -m.lat + 15, pad);
+        }
+        return fit(-170, -75, 190, 60, 0);
       }
       if (camera === "follow" && pos) {
         var span = Math.max(26, Math.min(60, route.spanLon * 0.6 + 10));
-        var hh = span / a;
-        return { x: pos.lon - span / 2 - span * (opts.offsetX || 0), y: -pos.lat - hh / 2, w: span, h: hh };
+        return fit(pos.lon - span / 2, -pos.lat - span / 4, pos.lon + span / 2, -pos.lat + span / 4, 0);
       }
       var xs = route.pts.map(function (p) { return p.lon; }), ys = route.pts.map(function (p) { return -p.lat; });
-      var t = fit(Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys), opts.pad || 0.35);
-      if (opts.offsetX) t.x -= t.w * opts.offsetX; // keep the route clear of a side sheet
-      return t;
+      return fit(Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys), pad);
     }
     function applyVB() {
       svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
@@ -229,7 +234,7 @@
           });
         });
       },
-      setMarkers: function (list) { markers = list; drawMarkers(); applyVB(); },
+      setMarkers: function (list) { markers = list; drawMarkers(); if (!route) refreshCamera(true); else applyVB(); },
       resize: function () { refreshCamera(true); },
       destroy: function () {
         destroyed = true;

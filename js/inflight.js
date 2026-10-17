@@ -25,6 +25,7 @@
   }
 
   SF.views.flight = {
+    stage: true,
     mount: function (root) {
       var af = SF.store.state.activeFlight;
       if (!af) { ui.go("book"); return; }
@@ -36,78 +37,91 @@
       var mode = settings.mapMode || "classic";
       var camera = settings.camera || "follow";
 
-      root.innerHTML =
-        '<div class="flight" data-backdrop="dark">' +
-        '<div class="flight-map" id="flightMap"></div>' +
-        '<header class="glass ft-route"><span class="tag-dot" style="--tag:' + af.tagColor + '">' + SF.icon(af.tagIcon) + "</span>" +
-        '<div><b class="mono">' + af.flightNo + "  " + af.from + " → " + af.to + "</b><small>" + (af.task ? SF.esc(af.task) : SF.esc(af.tagName)) + "</small></div></header>" +
+      document.body.setAttribute("data-backdrop", "dark");
+      ui.topbar(
+        '<div class="glass ft-chip"><span class="tag-dot" style="--tag:' + af.tagColor + '">' + SF.icon(af.tagIcon) + "</span>" +
+        '<div><b class="mono">' + af.flightNo + "  " + af.from + " → " + af.to + "</b><small>" + (af.task ? SF.esc(af.task) : SF.esc(af.tagName)) + "</small></div></div>" +
+        (SF.dev ? '<div class="glass dev-row"><b>DEV</b><button data-jump="0.49">49%</button><button data-jump="0.84">84%</button><button data-jump="0.97">97%</button><button id="devAway">AWAY 5S</button></div>' : ""),
         '<div class="glass ft-tools" role="toolbar" aria-label="Map controls">' +
+        '<span class="map-note" id="mapBadge" hidden></span>' +
         '<div class="seg" id="mapModes" role="group" aria-label="Map mode">' + SF.maps.MODES.map(function (m) {
           return '<button class="seg-btn" data-mode="' + m.id + '" aria-pressed="false" title="' + m.label + ' (M)">' + SF.icon(m.icon) + "<span>" + m.label + "</span></button>";
         }).join("") + "</div>" +
         '<button class="btn icon-only" id="camBtn" aria-label="Camera"></button>' +
         '<button class="btn icon-only" id="winBtn" title="Window view (W)" aria-label="Window view">' + SF.icon("window") + "</button>" +
         '<button class="btn icon-only" id="apBtn" title="Airplane mode (F)" aria-label="Airplane mode" aria-pressed="false">' + SF.icon("expand") + "</button>" +
-        "</div>" +
-        '<span class="map-badge mono" id="mapBadge" hidden></span>' +
+        "</div>");
 
-        '<aside class="glass strip" aria-label="Flight instruments">' +
+      root.innerHTML =
+        '<div class="stage" id="flightMap"></div>' +
+        '<div class="flight">' +
+        '<aside class="glass strip" id="strip" aria-label="Flight instruments">' +
         '<header class="strip-head"><span class="label">' + SF.esc(af.fromCity) + " to " + SF.esc(af.toCity) + '</span><span class="form-no">FMS SF-07</span></header>' +
 
         '<section class="inst inst-time">' +
         '<div class="inst-label"><span class="label">Time to destination</span><span class="lamp" id="holdLamp">HOLD</span></div>' +
-        '<div class="screen display"><span class="ghost mono" aria-hidden="true">88:88</span><span class="mono" id="remain" role="timer" aria-live="off">--:--</span></div>' +
-        '<div class="annun" id="annun" aria-label="Flight phase">' + PHASES.map(function (p) { return '<span data-p="' + p[0] + '">' + p[1] + "</span>"; }).join("") + "</div>" +
-        "</section>" +
-
-        '<section class="inst inst-prog">' +
-        '<div class="segbar" id="segBar" aria-hidden="true">' + new Array(SEGMENTS + 1).join("<i></i>") + "</div>" +
-        '<div class="prog-row mono"><span>' + af.from + '</span><b id="pct">0%</b><span>' + af.to + "</span></div>" +
+        '<div class="well time-well"><span class="readout readout-xl" id="remain" role="timer" aria-live="off">--:--</span></div>' +
+        '<div class="annun well" id="annun" aria-label="Flight phase">' + PHASES.map(function (p) { return '<span data-p="' + p[0] + '">' + p[1] + "</span>"; }).join("") + "</div>" +
+        '<div class="segbar well" id="segBar" aria-hidden="true">' + new Array(SEGMENTS + 1).join("<i></i>") + "</div>" +
+        '<div class="prog-row readout"><span>' + af.from + '</span><b id="pct">0%</b><span>' + af.to + "</span></div>" +
         "</section>" +
 
         '<section class="inst inst-gauges">' +
-        '<div class="gauge alt"><span class="label">ALT</span><div class="screen tape-v"><div class="tape" id="altTape">' + altTape() + '</div><div class="readout mono" id="alt">0</div></div><small class="unit mono">FT</small></div>' +
+        '<div class="gauge alt"><span class="label">ALT</span><div class="well tape-v"><div class="tape" id="altTape">' + altTape() + '</div><div class="readout" id="alt">0</div></div><small class="unit readout">FT</small></div>' +
         '<div class="gauge-col">' +
-        '<div class="gauge"><span class="label">GS</span><div class="screen box"><b class="mono" id="gs">0</b><small class="mono">KT</small></div></div>' +
-        '<div class="gauge"><span class="label">HDG</span><div class="screen tape-h"><div class="tape" id="hdgTape">' + hdgTape() + '</div><span class="caret" aria-hidden="true"></span></div><b class="mono hdg-val" id="hdg">000°</b></div>' +
+        '<div class="gauge-pair">' +
+        '<div class="gauge"><span class="label">GS · KT</span><div class="well box"><b class="readout readout-lg" id="gs">0</b></div></div>' +
+        '<div class="gauge"><span class="label">VS · FT/MIN</span><div class="well box"><b class="readout readout-lg" id="vs">0</b></div></div>' +
+        "</div>" +
+        '<div class="gauge hdg"><div class="inst-label"><span class="label">HDG</span><b class="readout readout-sm" id="hdg">000°</b></div><div class="well tape-h"><div class="tape" id="hdgTape">' + hdgTape() + '</div><span class="caret" aria-hidden="true"></span></div></div>' +
         "</div></section>" +
 
-        '<section class="inst inst-table mono">' +
-        '<div><span class="label">Flown</span><b id="flown">0</b></div>' +
-        '<div><span class="label">Remain</span><b id="remKm">0</b></div>' +
-        '<div><span class="label">ETA local</span><b id="eta">--</b></div>' +
-        '<div><span class="label">ETA ' + af.to + '</span><b id="etaLocal">--</b></div>' +
+        '<section class="inst-table">' +
+        '<div><span class="label">Flown</span><b class="readout readout-md" id="flown">0</b></div>' +
+        '<div><span class="label">Remain</span><b class="readout readout-md" id="remKm">0</b></div>' +
+        '<div><span class="label">ETA local</span><b class="readout readout-md" id="eta">--</b></div>' +
+        '<div><span class="label">ETA ' + af.to + '</span><b class="readout readout-md" id="etaLocal">--</b></div>' +
         "</section>" +
 
         '<footer class="strip-ctrl">' +
         '<button class="btn" id="holdBtn">' + SF.icon("pause") + '<span id="holdTxt">Hold</span><small id="holdsLeft"></small></button>' +
         '<button class="btn btn-text danger" id="divertBtn">' + SF.icon("alert") + "<span>Divert</span></button>" +
         "</footer></aside>" +
-
-        (SF.dev ? '<div class="glass dev-panel mono"><b>DEV</b><button data-jump="0.49">49%</button><button data-jump="0.84">84%</button><button data-jump="0.97">97%</button><button id="devAway">AWAY 5S</button></div>' : "") +
         "</div>";
 
-      var $ = function (id) { return root.querySelector("#" + id); };
+      var $ = function (id) { return document.getElementById(id); };
       var segs = Array.prototype.slice.call(root.querySelectorAll("#segBar i"));
 
       /* ---------- map ---------- */
+      // Free map area: right of the rail, below the top bar, left of the instrument cluster.
+      function insets() {
+        var gut = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gutter")) || 24;
+        var strip = $("strip"), bar = document.getElementById("topbar"), nav = document.getElementById("nav");
+        var W = window.innerWidth;
+        return {
+          left: (document.body.classList.contains("airplane") ? 0 : nav.getBoundingClientRect().right) + gut,
+          top: bar.getBoundingClientRect().bottom + gut,
+          right: strip ? W - strip.getBoundingClientRect().left + gut : gut,
+          bottom: gut
+        };
+      }
       function buildMap() {
         if (mapObj) mapObj.api.destroy();
         var host = $("flightMap");
         host.innerHTML = "";
-        mapObj = SF.maps.create(host, mode, { camera: camera, planeSize: 34, label: "Live flight map, " + A.city + " to " + B.city, offsetX: -0.16 });
+        mapObj = SF.maps.create(host, mode, { camera: camera, planeSize: 34, label: "Live flight map, " + A.city + " to " + B.city, insets: insets });
         mapObj.api.setRoute(A, B);
         var st = SF.flight.status(SF.store.state.activeFlight);
         mapObj.api.setProgress(st.routeFrac);
         mapObj.api.setCamera(camera, true);
-        ui.$$("#mapModes .seg-btn", root).forEach(function (b) {
+        ui.$$("#mapModes .seg-btn").forEach(function (b) {
           var on = b.getAttribute("data-mode") === mode;
           b.classList.toggle("on", on);
           b.setAttribute("aria-pressed", on);
         });
         var badge = $("mapBadge");
         badge.hidden = mapObj.mode === mode;
-        badge.textContent = "BUILT-IN MAP" + (SF.forceOffline ? " · OFFLINE" : "");
+        badge.textContent = "BUILT-IN" + (SF.forceOffline ? " · OFFLINE" : "");
       }
       function setMode(m) {
         mode = m;
@@ -161,7 +175,7 @@
       };
 
       /* ---------- instruments ---------- */
-      var lastPhase = null, lastLong = null;
+      var lastPhase = null, lastLong = null, lastAlt = null, lastT = 0, vs = 0;
       function render(st) {
         var cur = SF.store.state.activeFlight;
         if (!cur) return;
@@ -169,8 +183,7 @@
         var long = st.remainingMs >= 3600000;
         if (long !== lastLong) {
           lastLong = long;
-          root.querySelector(".display").classList.toggle("long", long);
-          root.querySelector(".display .ghost").textContent = long ? "8:88:88" : "88:88";
+          root.querySelector(".time-well").classList.toggle("long", long);
         }
         $("pct").textContent = Math.floor(st.progress * 100) + "%";
         var lit = Math.floor(st.progress * SEGMENTS);
@@ -184,6 +197,17 @@
         $("altTape").style.transform = "translateY(" + (-altIdx * ALT_PX) + "rem)";
         $("alt").textContent = String(Math.round(st.altitudeFt / 10) * 10).padStart(5, " ");
         $("gs").textContent = String(st.groundSpeedKt).padStart(3, " ");
+        // Vertical speed from the altitude change, smoothed and rounded like a real VSI.
+        var nowT = Date.now();
+        if (lastAlt !== null && nowT > lastT) {
+          var mins = (nowT - lastT) / 60000 * (cur.timeScale || 1);
+          var raw = st.paused || st.phase === "Cruise" ? 0 : (st.altitudeFt - lastAlt) / mins;
+          if (Math.abs(raw) < 120) raw = 0;
+          vs = vs * .7 + raw * .3;
+        }
+        lastAlt = st.altitudeFt; lastT = nowT;
+        var vsr = Math.round(vs / 100) * 100;
+        $("vs").textContent = vsr === 0 ? "0" : (vsr > 0 ? "+" : "−") + Math.abs(vsr).toLocaleString();
         var hdg = Math.round(st.heading) % 360;
         $("hdgTape").style.transform = "translateX(" + (-(hdg + 180) / HDG_STEP * HDG_PX) + "rem)";
         $("hdg").textContent = String(hdg).padStart(3, "0") + "°";
@@ -197,7 +221,7 @@
         $("holdBtn").querySelector(".icon").outerHTML = SF.icon(st.paused ? "play" : "pause");
         $("holdBtn").classList.toggle("btn-signal", st.paused);
         $("holdBtn").disabled = !st.paused && used >= max;
-        root.querySelector(".flight").classList.toggle("is-holding", st.paused);
+        root.querySelector(".strip").classList.toggle("is-holding", st.paused);
         if (mapObj) mapObj.api.setProgress(st.routeFrac);
       }
       offs.push(SF.engine.on("tick", render));
@@ -217,7 +241,7 @@
 
       /* ---------- dev helpers ---------- */
       if (SF.dev) {
-        ui.$$("[data-jump]", root).forEach(function (b) {
+        ui.$$("[data-jump]").forEach(function (b) {
           b.onclick = function () {
             SF.store.update(function (s) {
               var f = s.activeFlight, now = Date.now();
@@ -243,6 +267,7 @@
       self._cleanup = function () {
         offs.forEach(function (o) { o(); });
         if (mapObj) mapObj.api.destroy();
+        document.body.removeAttribute("data-backdrop");
       };
     },
     unmount: function () { if (this._cleanup) this._cleanup(); this._cleanup = null; }

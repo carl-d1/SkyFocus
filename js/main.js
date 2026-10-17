@@ -34,23 +34,49 @@
     return true;
   }
 
-  // Dev only: ?dev=1&demo=flight seeds a passenger and a flight in progress (used for screenshots).
-  function seedDemo() {
-    if (!SF.dev || new URLSearchParams(location.search).get("demo") !== "flight" || SF.store.state.activeFlight) return;
+  // Dev only: ?dev=1&demo=flight|book|logbook|arrival seeds a passenger, some history and the
+  // requested screen. Used for screenshots on a clean browser profile.
+  function seedDemo(kind) {
+    if (!SF.dev) return;
+    var now = Date.now(), H = 3600000;
     SF.store.update(function (s) {
       if (!s.profile.onboarded) {
-        s.profile = { name: "Demo Pilot", home: "MEL", memberSince: Date.now(), memberNo: "SF 0000 0000", onboarded: true };
+        s.profile = { name: "Demo Pilot", home: "MEL", memberSince: now - 30 * 24 * H, memberNo: "SF 0412 7730", onboarded: true };
         s.currentAirport = "MEL";
       }
-      var af = SF.flight.create({ from: "MEL", to: "SYD", minutes: 600, tagId: "coding", seat: "4A", task: "Refactor the parser" });
-      af.timeScale = 1;
-      af.started = true;
-      af.startAt = Date.now() - 240 * 60000;
-      af.milestones = { pushback: 1, takeoff: 1, cruise: 1 };
-      s.activeFlight = af;
+      if (!s.flights.length) {
+        var legs = [["MEL", "MQL", 25, "study", "Chapter 3 notes", "landed", 0, 0, "yes"], ["MQL", "ADL", 45, "coding", "Refactor the parser", "landed", 1, 0, "partly"],
+          ["ADL", "PER", 90, "writing", "Grant draft, section 2", "landed", 0, 1, "yes"], ["PER", "DPS", 60, "work", "Quarterly review deck", "diverted", 2, 1, null],
+          ["PER", "SIN", 120, "reading", "", "landed", 0, 0, "yes"]];
+        legs.forEach(function (l, k) {
+          var af = SF.flight.create({ from: l[0], to: l[1], minutes: l[2], tagId: l[3], seat: (3 + k * 5) + "A", task: l[4] });
+          af.startAt = now - (5 - k) * 20 * H - l[2] * 60000; af.holds = l[6]; af.turbulence = l[7];
+          var frac = l[5] === "landed" ? 1 : .55;
+          var st = { flownKm: af.distanceKm * frac, elapsedMs: l[2] * 60000 * frac };
+          var rec = SF.flight.toRecord(af, l[5], st, { outcome: l[8], endAt: af.startAt + l[2] * 60000 });
+          if (l[5] === "landed" && !s.stamps.some(function (x) { return x.iata === l[1]; })) {
+            var a = SF.airport(l[1]);
+            s.stamps.push({ iata: a.iata, city: a.city, country: a.country, cc: a.cc, continent: a.continent, date: rec.endAt, flightId: rec.id });
+            rec.newStamp = true;
+          }
+          s.flights.push(rec);
+        });
+        s.currentAirport = "SIN";
+      }
     }, true);
-    location.hash = "#/flight";
-    SF.engine.run();
+    if (kind === "flight" && !SF.store.state.activeFlight) {
+      SF.store.update(function (s) {
+        var af = SF.flight.create({ from: "SIN", to: "HKG", minutes: 240, tagId: "coding", seat: "4A", task: "Refactor the parser" });
+        af.timeScale = 1; af.started = true; af.startAt = now - 96 * 60000;
+        af.milestones = { pushback: 1, takeoff: 1, cruise: 1 };
+        s.activeFlight = af;
+      }, true);
+      SF.engine.run();
+    }
+    var target = { flight: "flight", book: "book", logbook: "logbook", passport: "passport", settings: "settings", layover: "layover",
+      arrival: "arrival/" + SF.store.state.flights.filter(function (f) { return f.status === "landed"; }).slice(-1)[0].id }[kind] || "book";
+    if (kind === "layover") SF.store.update(function (s) { s.layover = { start: now - 4 * 60000, min: 15, scale: 1 }; }, true);
+    location.hash = "#/" + target;
   }
 
   function boot() {
@@ -61,7 +87,8 @@
     ui.buildNav();
     ui.fileBanner();
     window.addEventListener("hashchange", ui.render);
-    if (SF.dev && new URLSearchParams(location.search).get("demo") === "flight") { seedDemo(); ui.render(); }
+    if (new URLSearchParams(location.search).get("lab") === "1") { location.hash = "#/lab"; ui.render(); }
+    else if (SF.dev && new URLSearchParams(location.search).get("demo")) { seedDemo(new URLSearchParams(location.search).get("demo")); ui.render(); }
     else { ui.render(); resumePrompt(); }
     if (SF.dev) console.info("SkyFocus dev mode: flights run 60× faster.");
   }

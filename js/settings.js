@@ -14,10 +14,10 @@
 
   SF.views.settings = {
     mount: function (root) {
+      ui.topbar(ui.topbarTitle("Configuration"), '<span class="saved" id="saved" aria-live="polite"></span>');
       function draw() {
         var S = SF.store.state, s = S.settings, home = SF.airport(S.profile.home), cur = SF.airport(S.currentAirport);
         root.innerHTML =
-          '<header class="page-head"><div><p class="eyebrow">Settings</p><h1>Configuration</h1></div><span class="saved" id="saved" aria-live="polite"></span></header>' +
           '<div class="settings-grid">' +
 
           '<section class="glass set-sec"><h2>' + SF.icon("user") + "Passenger</h2>" +
@@ -72,7 +72,7 @@
 
       var savedTimer = null;
       function saved() {
-        var el = root.querySelector("#saved");
+        var el = document.getElementById("saved");
         if (!el) return;
         el.textContent = "Saved";
         clearTimeout(savedTimer);

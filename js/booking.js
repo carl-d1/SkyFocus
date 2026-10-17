@@ -59,9 +59,9 @@
     for (var row = 1; row <= ROWS; row++) COLS.forEach(function (c) { if (r() < 0.38) taken[row + c] = true; });
     return taken;
   }
-  function durLabel(m) { return m < 60 ? m + " MIN" : (m % 60 ? SF.fmt.dur(m).toUpperCase() : m / 60 + " HR"); }
 
   SF.views.book = {
+    stage: true,
     mount: function (root) {
       var S = SF.store.state;
       var sel = {
@@ -77,33 +77,35 @@
       SF.bookPreset = null;
       var mapObj = null;
 
+      ui.topbar("", '<div class="glass goal-pill" id="homeGoal"></div>');
       root.innerHTML =
+        '<div class="stage" id="routeMap"></div>' +
         '<div class="book">' +
-        '<div class="book-map" id="routeMap"></div>' +
-        '<section class="glass sheet book-sheet" aria-label="Book a flight">' +
+        '<section class="glass sheet book-sheet" id="bookSheet" aria-label="Book a flight">' +
         '<header class="sheet-head"><div><p class="label">' + SF.esc((S.profile.name || "Passenger").toUpperCase()) + '</p><h1>Book flight</h1></div><span class="form-no">FORM SF-01</span></header>' +
-        '<div id="pendingPass"></div>' +
-        '<label class="field"><span class="label">Departing</span><div><input id="fromInput" aria-label="Departure airport"></div></label>' +
+        '<div class="sheet-body">' +
+        '<div id="pendingSlot"></div>' +
+        '<label class="field row"><span class="label">From</span><div><input id="fromInput" aria-label="Departure airport"></div></label>' +
         '<div class="seg seg-wide" id="modeSeg" role="radiogroup" aria-label="Booking mode">' +
         '<button type="button" role="radio" class="seg-btn" data-mode="time">' + SF.icon("clock") + "<span>Pick my time</span></button>" +
         '<button type="button" role="radio" class="seg-btn" data-mode="destination">' + SF.icon("compass") + "<span>Pick my destination</span></button></div>" +
         '<div id="modePanel"></div>' +
-        '<label class="field"><span class="label">Task</span><input id="taskInput" maxlength="80" placeholder="What are you working on?"></label>' +
-        '<div class="field"><span class="label">Tag</span><div class="chips tags" id="tagChips"></div></div>' +
-        '<div class="field"><span class="label seat-head">Seat <b id="seatLabel" class="mono"></b></span><div class="seatmap" id="seatMap"></div></div>' +
-        '<footer class="sheet-foot"><p class="mono summary" id="summary"></p><button class="btn btn-signal btn-lg" id="printPass" disabled>' + SF.icon("ticket") + "<span>Print boarding pass</span></button></footer>" +
+        '<label class="field row"><span class="label">Task</span><input id="taskInput" maxlength="80" placeholder="What are you working on?"></label>' +
+        '<div class="field row"><span class="label">Tag</span><div class="tag-grid" id="tagChips"></div></div>' +
+        '<div class="seat-field"><span class="label seat-head">Seat <b id="seatLabel" class="mono"></b></span><div class="seatmap" id="seatMap"></div></div>' +
+        "</div>" +
+        '<footer class="sheet-foot"><button class="btn btn-signal btn-lg block" id="printPass" disabled>' + SF.icon("ticket") + "<span>Print boarding pass</span></button></footer>" +
         "</section>" +
-        '<aside class="glass dest-card" id="destCard" aria-live="polite"></aside>' +
-        '<div class="glass goal-chip" id="homeGoal"></div>' +
+        '<aside class="book-side"><div class="glass dest-card" id="destCard" aria-live="polite"></div></aside>' +
         "</div>";
 
-      var $ = function (id) { return root.querySelector("#" + id); };
+      var $ = function (id) { return document.getElementById(id); };
       var fromInput = $("fromInput");
       function setFromLabel() { var a = SF.airport(sel.from); fromInput.value = a.city + " (" + a.iata + ")"; }
 
       /* ---------- pending (booked, not departed) ---------- */
       function renderPending() {
-        var af = SF.store.state.activeFlight, box = $("pendingPass");
+        var af = SF.store.state.activeFlight, box = $("pendingSlot");
         if (!af || af.started) { box.innerHTML = ""; return; }
         box.innerHTML = '<div class="notice">' + SF.icon("ticket") + "<span>Pass issued: <b class=\"mono\">" + af.from + " to " + af.to + "</b>, " + SF.fmt.dur(af.plannedMin) + ".</span>" +
           '<button class="btn btn-signal small" id="toGate">Gate</button><button class="btn small" id="cancelPass">Cancel</button></div>';
@@ -121,9 +123,9 @@
         var p = $("modePanel");
         if (sel.mode === "time") {
           var custom = DURATIONS.indexOf(sel.minutes) < 0;
-          p.innerHTML = '<div class="field"><span class="label">Block time</span><div class="chips dur-chips" role="group" aria-label="Focus length">' + DURATIONS.map(function (m) {
-            return '<button type="button" class="chip mono' + (m === sel.minutes ? " on" : "") + '" data-m="' + m + '" aria-pressed="' + (m === sel.minutes) + '">' + durLabel(m) + "</button>";
-          }).join("") + '<label class="chip chip-input' + (custom ? " on" : "") + '"><span>Custom</span><input type="number" id="customMin" min="5" max="600" step="5" value="' + (custom ? sel.minutes : "") + '" placeholder="min" aria-label="Custom minutes"></label></div></div>';
+          p.innerHTML = '<div class="field row"><span class="label">Min</span><div class="dur-grid dur-chips" role="group" aria-label="Focus length in minutes">' + DURATIONS.map(function (m) {
+            return '<button type="button" class="chip mono' + (m === sel.minutes ? " on" : "") + '" data-m="' + m + '" aria-pressed="' + (m === sel.minutes) + '">' + m + "</button>";
+          }).join("") + '<label class="chip chip-input' + (custom ? " on" : "") + '"><input type="number" id="customMin" min="5" max="600" step="5" value="' + (custom ? sel.minutes : "") + '" placeholder="Other" aria-label="Other length in minutes"></label></div></div>';
           p.querySelector(".dur-chips").addEventListener("click", function (e) {
             var b = e.target.closest("[data-m]");
             if (!b) return;
@@ -138,9 +140,9 @@
             renderMode(); pick(true);
           });
         } else {
-          p.innerHTML = '<div class="field"><span class="label">Destination</span><div class="search-row">' + SF.icon("search") + '<input id="destSearch" placeholder="City, country or code" aria-label="Search destinations"></div></div>' +
+          p.innerHTML = '<div class="field row"><span class="label">To</span><div class="search-row">' + SF.icon("search") + '<input id="destSearch" placeholder="City, country or code" aria-label="Search destinations"></div></div>' +
             '<div id="destList" class="dest-list" role="listbox" aria-label="Destinations"></div>' +
-            '<div class="field"><span class="label">Block time</span><div class="stepper"><button type="button" class="btn icon-only" id="minDown" aria-label="5 minutes shorter">' + SF.icon("minus") + '</button><b class="mono" id="minVal"></b><button type="button" class="btn icon-only" id="minUp" aria-label="5 minutes longer">' + SF.icon("plus") + "</button></div></div>" +
+            '<div class="field row"><span class="label">Block</span><div class="stepper"><button type="button" class="btn icon-only" id="minDown" aria-label="5 minutes shorter">' + SF.icon("minus") + '</button><b class="mono" id="minVal"></b><button type="button" class="btn icon-only" id="minUp" aria-label="5 minutes longer">' + SF.icon("plus") + "</button></div></div>" +
             '<div id="quickRoutes"></div>';
           var ds = p.querySelector("#destSearch");
           ds.addEventListener("input", renderDestList);
@@ -275,8 +277,6 @@
       }
 
       function renderSummary() {
-        var s = $("summary");
-        s.textContent = sel.to ? sel.from + " → " + sel.to + "  ·  " + SF.fmt.dur(sel.minutes).toUpperCase() + (sel.seat ? "  ·  SEAT " + sel.seat : "") : "NO ROUTE";
         $("printPass").disabled = !(sel.to && sel.seat);
         var dc = root.querySelector(".dc-facts div:last-child dd");
         if (dc) dc.textContent = SF.fmt.dur(sel.minutes);
@@ -373,11 +373,20 @@
 
       function renderGoal() {
         var today = SF.stats.todayMinutes(), goal = SF.store.state.settings.dailyGoalMin;
-        $("homeGoal").innerHTML = ui.ring(today / goal, 46, 4, "Daily goal " + Math.round(today / goal * 100) + "%") +
-          '<div><span class="label">Daily goal</span><b class="mono">' + SF.fmt.dur(today) + " / " + SF.fmt.dur(goal) + "</b></div>";
+        $("homeGoal").innerHTML = ui.ring(today / goal, 40, 4, "Daily goal " + Math.round(today / goal * 100) + "%") +
+          '<div><span class="label">Daily goal</span><b class="readout">' + SF.fmt.dur(today) + " / " + SF.fmt.dur(goal) + "</b></div>";
       }
 
-      mapObj = SF.maps.create($("routeMap"), "atlas", { camera: "route", pad: 0.6, planeSize: 22, showPlane: false, label: "Route map", offsetX: 0.18 });
+      // Free map area: between the sheet and the destination card, below the top bar.
+      function insets() {
+        var gut = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gutter")) || 24;
+        var sheet = $("bookSheet"), card = $("destCard"), bar = document.getElementById("topbar");
+        var W = window.innerWidth, cr = card && card.getBoundingClientRect();
+        var right = cr && cr.width ? W - cr.left + gut : gut;
+        // When the card sits low (narrow layouts), keep the route above it instead.
+        return { left: sheet.getBoundingClientRect().right + gut, top: bar.getBoundingClientRect().bottom + gut, right: right, bottom: gut };
+      }
+      mapObj = SF.maps.create($("routeMap"), "atlas", { camera: "route", padPx: 48, planeSize: 22, showPlane: false, label: "Route map", insets: insets });
       setFromLabel(); renderPending(); renderGoal(); renderTags(); renderMode();
       if (preset && SF.airport(preset.to) && preset.to !== sel.from) {
         if (preset.minutes) sel.minutes = preset.minutes;

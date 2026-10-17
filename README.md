@@ -25,8 +25,12 @@ A small dismissible banner explains this when you open the file directly.
 |---|---|
 | `?dev=1` | Flights and layovers run **60× faster** (a 25-minute flight takes 25 s). Adds a dev bar in flight: jump to 49% / 84% / 97%, fake a 5-second absence. |
 | `?offline=1` | Forces the built-in offline map (what you get when map tiles or CDN libraries can't load). |
+| `?lab=1` | Glass lab: three candidate glass treatments over a map, satellite, day sky or night backdrop (`&bg=map`, `sat`, `sky`, `night`). |
+| `?dev=1&demo=flight` | Seeds a passenger, some history and the named screen (`flight`, `book`, `logbook`, `arrival`, `passport`, `layover`). Use on a clean browser profile. |
 
 Example: `http://localhost:8080/?dev=1`
+
+Design rules (materials, spacing scale, layout grid, copy) are in [DESIGN.md](DESIGN.md).
 
 ## Keyboard shortcuts
 
