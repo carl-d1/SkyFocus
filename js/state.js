@@ -32,6 +32,7 @@
         theme: "dark",
         reducedMotion: false,
         scenes: true,
+        windowView: false,
         sounds: true,
         strictness: "warn",
         strictMinutes: 3,

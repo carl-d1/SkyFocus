@@ -65,13 +65,13 @@
         s.currentAirport = "SIN";
       }
     }, true);
-    var modeFor = { globe: "globe", satellite: "satellite", hold: "classic", flight: "classic" };
+    var modeFor = { globe: "globe", satellite: "satellite", hold: "classic", flight: "classic", window: "classic", whold: "classic" };
     if (modeFor[kind] && !SF.store.state.activeFlight) {
       SF.store.update(function (s) {
         var af = SF.flight.create({ from: "SIN", to: "HKG", minutes: 240, tagId: "coding", seat: "4A", task: "Refactor the parser" });
         af.timeScale = 1; af.started = true; af.startAt = now - 96 * 60000;
         af.milestones = { pushback: 1, takeoff: 1, cruise: 1 };
-        if (kind === "hold") {
+        if (kind === "hold" || kind === "whold") {
           // in the middle of a hold that began two minutes ago
           var st = SF.flight.status(af, now - 120000);
           af.track.holds.push({ frac: st.routeFrac, heading: st.heading, start: now - 120000, end: null });
@@ -80,6 +80,7 @@
         s.activeFlight = af;
         s.settings.mapMode = modeFor[kind];
         s.settings.camera = "route";
+        s.settings.windowView = kind === "window" || kind === "whold";
       }, true);
       SF.engine.run();
     }
@@ -102,6 +103,9 @@
     if (kind === "layover") SF.store.update(function (s) { s.layover = { start: now - 4 * 60000, min: 15, scale: 1 }; }, true);
     location.hash = "#/" + target;
   }
+
+  // dev: &hour=H sets solar time at the aircraft for the window view
+  if (SF.dev) { var hr = new URLSearchParams(location.search).get("hour"); if (hr != null) SF.devSunHour = +hr; }
 
   function boot() {
     ui.applyTheme();

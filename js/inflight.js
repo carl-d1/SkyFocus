@@ -49,12 +49,15 @@
           return '<button class="seg-btn" data-mode="' + m.id + '" aria-pressed="false" title="' + m.label + ' (M)">' + SF.icon(m.icon) + "<span>" + m.label + "</span></button>";
         }).join("") + "</div>" +
         '<button class="btn icon-only" id="camBtn" aria-label="Camera"></button>' +
-        '<button class="btn icon-only" id="winBtn" title="Window view (W)" aria-label="Window view">' + SF.icon("window") + "</button>" +
+        '<button class="btn icon-only" id="winBtn" title="Window view (W)" aria-label="Window view" aria-pressed="false">' + SF.icon("window") + "</button>" +
+        '<button class="btn icon-only" id="sndBtn" title="Sound (N mutes)" aria-label="Sound" aria-expanded="false">' + SF.icon("volume") + "</button>" +
         '<button class="btn icon-only" id="apBtn" title="Airplane mode (F)" aria-label="Airplane mode" aria-pressed="false">' + SF.icon("expand") + "</button>" +
         "</div>");
 
       root.innerHTML =
         '<div class="stage" id="flightMap"></div>' +
+        '<div class="stage window-stage" id="windowStage" hidden></div>' +
+        '<div class="glass sound-pop" id="soundPop" hidden role="dialog" aria-label="Sound mixer"><div class="sp-head"><span class="label">Cabin sound</span><span class="sp-meter" aria-hidden="true"><i id="sndMeter"></i></span><span class="form-no">PA SF-03</span></div><div id="mixHost"></div></div>' +
         '<div class="flight">' +
         '<aside class="glass strip" id="strip" aria-label="Flight instruments">' +
         '<header class="strip-head"><span class="label">' + SF.esc(af.fromCity) + " to " + SF.esc(af.toCity) + '</span><span class="form-no">FMS SF-07</span></header>' +
@@ -137,7 +140,7 @@
       function setMode(m) {
         mode = m;
         SF.store.update(function (s) { s.settings.mapMode = m; });
-        buildMap();
+        if (win) setWindow(false); else buildMap();
       }
       function cycleMode() {
         var ids = SF.maps.MODES.map(function (m) { return m.id; });
@@ -154,7 +157,57 @@
       }
       $("mapModes").onclick = function (e) { var b = e.target.closest("[data-mode]"); if (b) setMode(b.getAttribute("data-mode")); };
       $("camBtn").onclick = function () { setCamera(camera === "follow" ? "route" : "follow"); };
-      $("winBtn").onclick = function () { ui.toast("Window view not installed yet.", "window"); };
+
+      /* ---------- window view ---------- */
+      var win = null;
+      function setWindow(on) {
+        SF.store.update(function (s) { s.settings.windowView = on; });
+        var stage = $("windowStage");
+        $("winBtn").classList.toggle("on", on);
+        $("winBtn").setAttribute("aria-pressed", on);
+        ui.$$("#mapModes .seg-btn, #camBtn").forEach(function (b) { b.disabled = on; });
+        document.body.setAttribute("data-backdrop", on ? "bright" : "dark");   // daylight through the windows
+        if (on) {
+          if (mapObj) { mapObj.api.destroy(); mapObj = null; }
+          $("flightMap").innerHTML = "";
+          stage.hidden = false;
+          win = SF.windowView.mount(stage, function () { var f = SF.store.state.activeFlight; return f && SF.flight.status(f); }, { insets: insets, seat: af.seat, seed: af.id });
+        } else {
+          if (win) { win.destroy(); win = null; }
+          stage.hidden = true;
+          buildMap();
+        }
+      }
+      $("winBtn").onclick = function () { setWindow(!win); };
+      offs.push(function () { if (win) win.destroy(); });
+
+      /* ---------- sound ---------- */
+      $("mixHost").innerHTML = SF.audio.mixerHTML();
+      SF.audio.bindMixer($("mixHost"));
+      var meterRaf = 0;
+      function meter() {
+        var v = Math.min(1, SF.audio.meter() * 6);
+        $("sndMeter").style.transform = "scaleX(" + v.toFixed(3) + ")";
+        meterRaf = requestAnimationFrame(meter);
+      }
+      offs.push(function () { cancelAnimationFrame(meterRaf); });
+      function setPop(open) {
+        cancelAnimationFrame(meterRaf);
+        if (open) meter();
+        $("soundPop").hidden = !open;
+        $("sndBtn").setAttribute("aria-expanded", open);
+        $("sndBtn").classList.toggle("on", open);
+      }
+      $("sndBtn").onclick = function (e) { e.stopPropagation(); SF.audio.unlock(); setPop($("soundPop").hidden); };
+      function outside(e) { if (!$("soundPop").hidden && !e.target.closest("#soundPop, #sndBtn")) setPop(false); }
+      document.addEventListener("pointerdown", outside);
+      offs.push(function () { document.removeEventListener("pointerdown", outside); });
+      function syncSndIcon() { $("sndBtn").innerHTML = SF.icon(SF.audio.mix().muted ? "mute" : "volume"); }
+      syncSndIcon();
+      SF.audio.setScene("cabin");
+      offs.push(function () { SF.audio.setScene("idle"); });
+      var ENGINE = { Pushback: .25, Taxi: .32, Takeoff: 1, Climb: .9, Cruise: .7, Holding: .62, Descent: .48, Approach: .55, Landing: .4, Arrived: .2 };
+      offs.push(SF.engine.on("tick", function (st) { SF.audio.cabin(ENGINE[st.phase] != null ? ENGINE[st.phase] : .7); }));
 
       /* ---------- airplane mode ---------- */
       function syncAp() {
@@ -249,6 +302,8 @@
         if (k === "m") { cycleMode(); return true; }
         if (k === "c") { setCamera(camera === "follow" ? "route" : "follow"); return true; }
         if (k === "w") { $("winBtn").click(); return true; }
+        if (k === "n") { SF.audio.unlock(); var m = SF.audio.toggleMute(); syncSndIcon(); var mh = $("mixHost"); mh.innerHTML = SF.audio.mixerHTML(); ui.toast(m ? "Sound muted." : "Sound on.", m ? "mute" : "volume"); return true; }
+        if (e.key === "Escape" && !$("soundPop").hidden) { setPop(false); return true; }
         if (k === "f") { toggleAp(); return true; }
         if (e.key === "Escape" && document.body.classList.contains("airplane")) { toggleAp(); return true; }
         return false;
@@ -275,8 +330,8 @@
         };
       }
 
-      buildMap();
       setCamera(camera);
+      if (settings.windowView) setWindow(true); else buildMap();
       SF.scenes.preload();   // the landing scene
       syncAp();
       render(SF.flight.status(af));

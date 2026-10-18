@@ -688,7 +688,7 @@
         document.body.appendChild(ov);
         ov.querySelector(".scene-skip").focus({ preventScroll: true });
 
-        var runner = null, raf = 0, t0 = 0, last = 0, hudT = -1, touched = 0, revealed = false, ended = false;
+        var runner = null, raf = 0, t0 = 0, last = 0, hudT = -1, touched = 0, revealed = false, ended = false, swooshed = false;
         function reveal() {
           if (revealed) return;
           revealed = true;
@@ -701,6 +701,8 @@
           window.removeEventListener("keydown", key, true);
           window.removeEventListener("resize", resize);
           reveal();
+          sfx("engine", null);   // hand the engine back to the cabin (or to silence on arrival)
+          if (kind === "landing" && SF.audio) SF.audio.setScene("idle");
           ov.classList.add("out");
           setTimeout(function () {
             try { if (runner) runner.destroy(); } catch (e) { /* already gone */ }
@@ -737,6 +739,7 @@
           veilEl.style.opacity = Math.max(veil, seq.white ? seq.white(t) : 0).toFixed(3);
           fadeEl.style.opacity = Math.max(1 - t / .5, seq.dark ? seq.dark(t) : 0).toFixed(3);
           sfx("engine", st.thr);
+          if (kind === "takeoff" && !swooshed && t >= 5.4) { swooshed = true; sfx("swoosh"); }
           if (t - hudT > .08) {
             hudT = t;
             phaseEl.textContent = st.phase;
@@ -770,6 +773,9 @@
       });
     }
   };
+
+  // shared with the window view
+  SF.sky = { palette: palette, sunAt: sunAt, css: css, mix: mix };
 
   // Dev: preview a scene without flying. SF.scenes.demo("landing", { to: "SYD", hour: 19, hold: 6.1 })
   // sets solar time at the airport and can freeze one moment of the sequence.

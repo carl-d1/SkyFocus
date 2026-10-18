@@ -122,19 +122,24 @@
   };
   ui.currentRoute = function () { return currentName; };
 
-  // Route changes run inside a view transition where supported, so named elements (the destination
-  // card and the boarding pass) morph between screens instead of cutting. Not while a takeoff or
-  // landing scene is on screen, and not with reduced motion.
+  // Booking to gate runs inside a view transition where supported, so the destination card morphs
+  // into the boarding pass instead of cutting. Not while a scene is on screen, not with reduced
+  // motion, and a transition that has not finished within a second is skipped.
   ui.render = function () {
-    var vt = document.startViewTransition && current && !ui.reducedMotion() && !(SF.scenes && SF.scenes.playing) && !document.hidden;
+    var vt = document.startViewTransition && currentName === "book" && ui.parseHash().name === "board" &&
+      !ui.reducedMotion() && !(SF.scenes && SF.scenes.playing) && !document.hidden;
     if (!vt) { renderNow(); return; }
-    var html = document.documentElement;
+    var html = document.documentElement, t = null, guard = null;
     html.classList.add("vt-run");
+    function done() { clearTimeout(guard); html.classList.remove("vt-run"); }
     try {
-      var t = document.startViewTransition(renderNow);
+      t = document.startViewTransition(renderNow);
       t.finished.then(done, done);
+      // a skipped transition rejects these; that is expected
+      if (t.ready) t.ready.catch(function () {});
+      if (t.updateCallbackDone) t.updateCallbackDone.catch(function () {});
+      guard = setTimeout(function () { try { t.skipTransition(); } catch (e) { /* already over */ } done(); }, 1000);
     } catch (e) { done(); renderNow(); }
-    function done() { html.classList.remove("vt-run"); }
   };
   function renderNow() {
     var r = ui.parseHash();
@@ -438,6 +443,7 @@
     ["Space", "Hold or resume"],
     ["M", "Cycle map mode"],
     ["W", "Window view"],
+    ["N", "Mute or unmute sound"],
     ["F", "Airplane mode"],
     ["C", "Camera: follow or route"],
     ["L", "Logbook"],

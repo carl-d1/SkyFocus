@@ -163,6 +163,7 @@
   SF.views.arrival = {
     fit: true,
     mount: function (root, args) {
+      if (!(SF.scenes && SF.scenes.playing)) SF.audio.setScene("idle");
       var rec = findFlight(args[0]) || SF.store.state.flights[SF.store.state.flights.length - 1];
       if (!rec) { ui.go("book"); return; }
       var landed = rec.status === "landed";
@@ -273,6 +274,7 @@
       var inJourney = !!(j && lo.journeyId === j.id);
       var sugg = inJourney ? [] : SF.routeCandidates(here.iata, def, { max: 6 });
       var autoStart = inJourney && SF.store.state.settings.journey.autoStart;
+      SF.audio.setScene("layover");   // rain, noise and pad carry on through the break; no engine
 
       root.innerHTML =
         '<div class="layover"><section class="glass layover-card">' +
@@ -351,7 +353,7 @@
         SF.bookPreset = { to: b.getAttribute("data-code"), minutes: def };
         ui.go("book");
       };
-      this._stop = function () { clearInterval(iv); SF.ui.setTitle(""); };
+      this._stop = function () { clearInterval(iv); SF.ui.setTitle(""); SF.audio.setScene("idle"); };
     },
     unmount: function () { if (this._stop) this._stop(); }
   };

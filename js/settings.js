@@ -54,7 +54,12 @@
           '<div class="field"><span class="label">Graphics quality</span>' + seg("gfx", s.graphics || "high", [["high", "High"], ["balanced", "Balanced"], ["low", "Low"]]) + "</div>" +
           toggle("sMotion", s.reducedMotion, "Reduce motion", "Animations off. The system setting also applies.") +
           toggle("sScenes", s.scenes !== false, "Takeoff and landing scenes", "Short sequences at departure and arrival. Space skips.") +
-          toggle("sSound", s.sounds, "Sound", "Chimes and cabin audio.") +
+          "</section>" +
+
+          '<section class="glass set-sec"><h2>' + SF.icon("volume") + "Sound</h2>" +
+          '<p class="muted">Synthesised cabin audio. Engine plays in flight; rain, white noise and the pad also play during layovers.</p>' +
+          toggle("sSound", s.sounds, "Sound", "Chimes, cabin layers, takeoff and touchdown.") +
+          '<div id="setMix"></div><button class="btn small" id="sndTest">' + SF.icon("play") + "<span>Test chime</span></button>" +
           "</section>" +
 
           '<section class="glass set-sec"><h2>' + SF.icon("shield") + "Distraction guard</h2>" +
@@ -134,7 +139,10 @@
         root.querySelector("#jAuto").onchange = function () { var v = this.checked; set(function (s) { s.settings.journey.autoStart = v; }); };
         root.querySelector("#sMotion").onchange = function () { var v = this.checked; set(function (s) { s.settings.reducedMotion = v; }); };
         root.querySelector("#sScenes").onchange = function () { var v = this.checked; set(function (s) { s.settings.scenes = v; }); };
-        root.querySelector("#sSound").onchange = function () { var v = this.checked; set(function (s) { s.settings.sounds = v; }); };
+        root.querySelector("#sSound").onchange = function () { var v = this.checked; set(function (s) { s.settings.sounds = v; }); SF.audio.unlock(); SF.audio.refresh(); };
+        root.querySelector("#setMix").innerHTML = SF.audio.mixerHTML();
+        SF.audio.bindMixer(root.querySelector("#setMix"));
+        root.querySelector("#sndTest").onclick = function () { SF.audio.unlock(); SF.audio.chime(); };
         ui.$$("[data-seg]", root).forEach(function (g) {
           g.onclick = function (e) {
             var b = e.target.closest("[data-v]"); if (!b) return;

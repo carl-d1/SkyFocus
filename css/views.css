@@ -372,3 +372,27 @@ a.seg-btn { text-decoration: none; }
 .log-table tr.journey-head td { height: 40px; padding-top: var(--s-3); border-bottom: 1px solid var(--glass-rule); color: var(--glass-text); }
 .log-table tr.journey-head small { color: var(--glass-muted); font-size: 12px; }
 .log-table tr.leg-row td:first-child { box-shadow: inset 3px 0 0 var(--signal); padding-left: var(--s-3); }
+
+/* =========================================================
+   WINDOW VIEW AND SOUND
+   ========================================================= */
+.window-stage { z-index: 0; background: #1d1c19; animation: fadeIn .4s ease; }
+.window-stage[hidden] { display: none; }
+.wv-sky, .wv-wall { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wv-label { position: absolute; left: calc(var(--rail-w) + var(--gutter)); bottom: var(--gutter); display: grid; gap: var(--s-1); padding: var(--s-2) var(--s-4); }
+body.airplane .wv-label { left: var(--gutter); }
+.ft-tools .btn.on { color: var(--signal-text); }
+.sound-pop { position: fixed; z-index: 30; top: calc(var(--topbar-h) + var(--s-3)); right: calc(var(--side-w) + var(--gutter) * 2); width: 340px; padding: var(--s-4) var(--s-5); display: grid; gap: var(--s-3); animation: springIn .45s var(--spring); }
+.sound-pop[hidden] { display: none; }
+.sp-meter { flex: 1; height: 4px; margin: 0 var(--s-3); border-radius: 2px; background: var(--glass-well); overflow: hidden; align-self: center; }
+.sp-meter i { display: block; height: 100%; background: var(--signal); transform: scaleX(0); transform-origin: left; }
+.sp-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--s-2); border-bottom: 1px solid var(--glass-rule); }
+.mixer { display: grid; gap: var(--s-2); }
+.mix-row { display: grid; grid-template-columns: 128px minmax(0, 1fr) 32px; align-items: center; gap: var(--s-3); }
+.mix-name { display: flex; align-items: center; gap: var(--s-2); font-size: 13px; }
+.mix-name .icon { width: 16px; height: 16px; }
+.mix-row b { text-align: right; }
+.mix-row input[type=range] { width: 100%; accent-color: var(--signal); }
+.mix-rule { height: 1px; background: var(--glass-rule); margin: var(--s-1) 0; }
+.mix-mute { justify-self: start; }
+#setMix { margin: var(--s-2) 0 var(--s-3); max-width: 480px; }
