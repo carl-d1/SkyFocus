@@ -82,7 +82,17 @@
         '<div class="glass wv-label"><span class="label">Window · seat ' + SF.esc(opts.seat || "A") + " · looking " + (dir > 0 ? "left" : "right") + '</span><b class="readout readout-sm" id="wvRead">--</b></div>';
       host.setAttribute("role", "img");
       host.setAttribute("aria-label", "View from the cabin window");
-      var glowCv = host.querySelector(".wv-glow"), gg = glowCv.getContext("2d"), glowMask = null;
+      var glowCv = host.querySelector(".wv-glow"), gg = glowCv.getContext("2d"), glowMask = null, cabinNight = null, grain = null;
+      // fine grain for the wall panels, made once
+      function grainURL() {
+        if (grain) return grain;
+        var c = document.createElement("canvas"); c.width = c.height = 160;
+        var gx = c.getContext("2d"), r = SF.rng(29), img = gx.createImageData(160, 160);
+        for (var j = 0; j < img.data.length; j += 4) { var v = r() * 255 | 0; img.data[j] = img.data[j + 1] = img.data[j + 2] = v; img.data[j + 3] = 10; }
+        gx.putImageData(img, 0, 0);
+        grain = c.toDataURL();
+        return grain;
+      }
       var cv = host.querySelector("canvas"), g = cv.getContext("2d"), wall = host.querySelector("svg"), read = host.querySelector("#wvRead");
       var dpr = Math.min(window.devicePixelRatio || 1, q === "high" ? 1.5 : 1), W = 0, H = 0, wins = [], centre = null;
 
@@ -184,12 +194,34 @@
         m.globalCompositeOperation = "destination-out";
         m.fillStyle = "#000";
         wins.forEach(function (o) { rrPath(o); m.fill(); });
+        // night cabin lighting: a warm wash from the ceiling and faint pools from the reading lights
+        cabinNight = document.createElement("canvas"); cabinNight.width = w * dpr; cabinNight.height = h * dpr;
+        var cn = cabinNight.getContext("2d");
+        cn.scale(dpr, dpr);
+        var wash = cn.createLinearGradient(0, 0, 0, h * .45);
+        wash.addColorStop(0, "rgba(255,176,104,.16)"); wash.addColorStop(1, "rgba(255,176,104,0)");
+        cn.fillStyle = wash; cn.fillRect(0, 0, w, h * .45);
+        for (var px = (cx - gap / 2) % gap; px < w + gap; px += gap) {
+          var pool = cn.createRadialGradient(px, h * .06, 0, px, h * .06, h * .5);
+          pool.addColorStop(0, "rgba(255,200,140,.12)"); pool.addColorStop(1, "rgba(255,200,140,0)");
+          cn.fillStyle = pool; cn.fillRect(px - h * .5, 0, h, h * .56);
+        }
+        var floor = cn.createLinearGradient(0, h * .82, 0, h);
+        floor.addColorStop(0, "rgba(120,140,200,0)"); floor.addColorStop(1, "rgba(120,140,200,.06)");
+        cn.fillStyle = floor; cn.fillRect(0, h * .82, w, h * .18);
         wall.setAttribute("viewBox", "0 0 " + w + " " + h);
         wall.innerHTML =
           '<defs><linearGradient id="wvWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b3934"/><stop offset=".5" stop-color="#2e2c28"/><stop offset="1" stop-color="#1d1c19"/></linearGradient>' +
           '<radialGradient id="wvBezel" cx=".5" cy=".42" r=".62"><stop offset=".8" stop-color="#4a4740"/><stop offset=".93" stop-color="#26241f"/><stop offset="1" stop-color="#3d3a34"/></radialGradient>' +
-          '<linearGradient id="wvShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8d3c7"/><stop offset="1" stop-color="#b9b3a6"/></linearGradient></defs>' +
-          '<path d="M0 0H' + w + "V" + h + "H0Z" + holes + '" fill="url(#wvWall)" fill-rule="evenodd"/>' + seams + deco;
+          '<linearGradient id="wvShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8d3c7"/><stop offset="1" stop-color="#b9b3a6"/></linearGradient>' +
+          '<pattern id="wvGrain" width="160" height="160" patternUnits="userSpaceOnUse"><image href="' + grainURL() + '" width="160" height="160"/></pattern>' +
+          '<linearGradient id="wvDado" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".02" stop-color="#fff" stop-opacity=".06"/><stop offset=".05" stop-color="#000" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></linearGradient>' +
+          '<linearGradient id="wvBin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>' +
+          '<clipPath id="wvWallClip"><path clip-rule="evenodd" d="M0 0H' + w + "V" + h + "H0Z" + holes + '"/></clipPath></defs>' +
+          '<path d="M0 0H' + w + "V" + h + "H0Z" + holes + '" fill="url(#wvWall)" fill-rule="evenodd"/>' +
+          '<g clip-path="url(#wvWallClip)"><rect width="' + w + '" height="' + h + '" fill="url(#wvGrain)"/>' +
+          '<rect y="0" width="' + w + '" height="' + (h * .1) + '" fill="url(#wvBin)"/>' +
+          '<rect y="' + (h * .84) + '" width="' + w + '" height="' + (h * .16) + '" fill="url(#wvDado)"/></g>' + seams + deco;
       }
 
       /* ---------- drawing ---------- */
@@ -255,7 +287,9 @@
         // stars and moon
         if (P.stars > .02) {
           stars.forEach(function (s) {
-            var x = cx + dir * wrap180(s.az - viewAz) * k * dir, y = hy - s.el * k;
+            var ra = wrap180(s.az - viewAz);
+            if (Math.abs(ra) > FOV / 2 + 4) return;   // behind the viewer
+            var x = cx + ra * k, y = hy - s.el * k;
             g.fillStyle = "rgba(255,255,255," + Math.min(1, P.stars * (s.m + .25)).toFixed(2) + ")";
             var z = s.m > .85 ? 2.4 : s.m > .6 ? 1.7 : 1.2;
             g.fillRect(x, y, z, z);
@@ -302,10 +336,13 @@
             cg.addColorStop(0, "rgba(255,170,90," + ((.12 + .2 * t2.size) * fade).toFixed(3) + ")"); cg.addColorStop(1, "rgba(255,170,90,0)");
             g.fillStyle = cg; g.fillRect(c2.x - gR, c2.y - gR, gR * 2, gR * 2);
           }
-          t2.pts.forEach(function (pp) {
+          // distant towns are drawn with fewer, slightly larger points
+          var step = c2.d > 120 ? 3 : c2.d > 60 ? 2 : 1;
+          t2.pts.forEach(function (pp, pi) {
+            if (pi % step) return;
             var p = proj(t2.a + pp.da, t2.r + pp.dr, 0, alt, cx, hy, k);
             var tw = reduce ? 1 : .7 + .3 * Math.sin(ts * pp.f + pp.ph);
-            var a2 = Math.min(1, fade * (.6 + .6 * pp.k) * tw), z = Math.max(1.3, 3 - p.d / 60);
+            var a2 = Math.min(1, fade * (.6 + .6 * pp.k) * tw), z = Math.max(1.3, 3 - p.d / 60) + (step - 1) * .4;
             g.fillStyle = pp.warm ? "rgba(255,206,130," + a2.toFixed(3) + ")" : "rgba(220,236,255," + (a2 * .85).toFixed(3) + ")";
             g.fillRect(p.x, p.y, z, z * .8);
           });
@@ -540,6 +577,12 @@
         gg.fillStyle = SF.sky.css(col);
         gg.fillRect(0, 0, glowCv.width, glowCv.height);
         gg.globalCompositeOperation = "source-over";
+        var nightCabin = clamp((-sun.el + 2) / 10, 0, 1);
+        if (cabinNight && nightCabin > 0) {
+          gg.globalAlpha = nightCabin * (sh > .02 ? 1 - sh * .35 * Math.random() : 1);
+          gg.drawImage(cabinNight, 0, 0);
+          gg.globalAlpha = 1;
+        }
       }
       function sunTime(pos) {
         var d = SF.devSunHour != null ? new Date(SF.devSunHour * 3600000) : new Date(Date.now() + pos.lon / 15 * 3600000);
@@ -547,6 +590,7 @@
       }
 
       var raf = requestAnimationFrame(frame);
+      if (SF.dev) host._frame = frame;   // dev: lets a test time a frame
       return {
         destroy: function () { cancelAnimationFrame(raf); host.innerHTML = ""; }
       };
