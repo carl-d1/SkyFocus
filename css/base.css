@@ -263,3 +263,24 @@ body.airplane .app { grid-template-columns: minmax(0, 1fr); }
 ::view-transition-group(pass-head) { animation-duration: .6s; animation-timing-function: var(--spring-soft, ease); }
 ::view-transition-old(pass-head), ::view-transition-new(pass-head) { height: 100%; object-fit: fill; }
 ::view-transition-group(rail) { animation: none; }
+
+/* =========================================================
+   DESKTOP APP: window controls in the top bar (html.desktop is set only in Electron)
+   ========================================================= */
+.win-ctrls { display: none; }
+html.desktop .topbar { grid-template-columns: auto minmax(0, 1fr) auto auto; -webkit-app-region: drag; }
+html.desktop .topbar .glass, html.desktop .topbar button, html.desktop .topbar a, html.desktop .topbar input,
+html.desktop .topbar select, html.desktop .topbar [role="toolbar"] { -webkit-app-region: no-drag; }
+html.desktop .win-ctrls { display: flex; align-items: center; gap: 2px; height: 48px; padding: 0 var(--s-1); border-radius: 999px;
+  transition: opacity .2s ease, transform .35s var(--spring); }
+.wc { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--glass-text);
+  transition: background .15s, color .15s, transform .3s var(--spring); }
+.wc .icon { width: 16px; height: 16px; }
+.wc:hover { background: rgba(255, 255, 255, .12); }
+.wc:active { transform: scale(.9); }
+.wc.close:hover { background: #d93a33; color: #fff; }
+.wc-sep { width: 1px; height: 20px; margin: 0 var(--s-1); background: var(--glass-rule); }
+html.win-fullscreen .win-ctrls { opacity: 0; transform: translateY(-16px); pointer-events: none; }
+html.win-fullscreen.win-reveal .win-ctrls { opacity: 1; transform: none; pointer-events: auto; }
+/* room for everything at 1366: the map mode switch shows icons only */
+@media (max-width: 1500px) { html.desktop .ft-tools .seg-btn span { display: none; } }
