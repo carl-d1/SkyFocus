@@ -206,7 +206,8 @@
         if (drawRaf) cancelAnimationFrame(drawRaf);
         clearInterval(nightTimer);
         if (ro) ro.disconnect();
-        try { map.remove(); } catch (e) { /* container already cleared */ }
+        // stop any pan or zoom first: removing a map mid-animation leaves Leaflet timers on a dead map
+        try { map.stop(); map.off(); map.eachLayer(function (l) { l.off(); }); map.remove(); } catch (e) { /* container already cleared */ }
         host.remove();
       }
     };

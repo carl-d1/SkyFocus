@@ -73,13 +73,7 @@
       m.setProgress(.45);
     }
     if (SF.forceOffline) { atlas(); return; }
-    var css = document.createElement("link");
-    css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-    document.head.appendChild(css);
-    var js = document.createElement("script");
-    js.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-    js.onerror = atlas;
-    js.onload = function () {
+    SF.lib.load("leaflet").then(function () {
       var map = window.L.map(host, { zoomControl: false, attributionControl: true }).setView([-35.6, 147.6], 6);
       if (imagery) {
         window.L.tileLayer(ESRI + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }).addTo(map);
@@ -91,8 +85,7 @@
       var pts = SF.geo.arcPoints(A, B, 64).map(function (p) { return [p.lat, p.lon]; });
       window.L.polyline(pts.slice(0, 30), { color: "#ffc400", weight: 3 }).addTo(map);
       window.L.polyline(pts.slice(29), { color: "#ece8de", weight: 1.5, dashArray: "5 5" }).addTo(map);
-    };
-    document.head.appendChild(js);
+    }, atlas);
   }
 
   function panel(v) {

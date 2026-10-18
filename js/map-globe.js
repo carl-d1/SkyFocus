@@ -4,10 +4,13 @@
 (function () {
   var SF = (window.SF = window.SF || {});
   var D2R = Math.PI / 180;
-  var TEX = {
-    day: "https://cdn.jsdelivr.net/npm/three-globe@2.31.1/example/img/earth-blue-marble.jpg",
-    night: "https://cdn.jsdelivr.net/npm/three-globe@2.31.1/example/img/earth-night.jpg"
-  };
+  // Earth imagery: the local copy first; over file:// WebGL cannot read local images, so the CDN copy is used
+  var CDN_IMG = "https://cdn.jsdelivr.net/npm/three-globe@2.31.1/example/img/", LOCAL_IMG = "vendor/three-globe/2.31.1/";
+  function texSources(file) {
+    if (location.protocol === "file:") return SF.forceOffline ? [] : [CDN_IMG + file];
+    return SF.forceOffline ? [LOCAL_IMG + file] : [LOCAL_IMG + file, CDN_IMG + file];
+  }
+  var TEX = { day: "earth-blue-marble.jpg", night: "earth-night.jpg" };
 
   // lat/lon to a point on the unit sphere, matching three.js SphereGeometry UVs
   function vec(T, lat, lon, r) {
@@ -82,10 +85,12 @@
     // real imagery when the network allows
     var loader = new T.TextureLoader();
     loader.setCrossOrigin("anonymous");
-    if (!SF.forceOffline) {
-      loader.load(TEX.day, function (t) { t.encoding = T.sRGBEncoding; t.anisotropy = 8; uniforms.dayMap.value = t; dayTex.dispose(); }, undefined, function () { });
-      loader.load(TEX.night, function (t) { t.encoding = T.sRGBEncoding; uniforms.nightMap.value = t; nightTex.dispose(); }, undefined, function () { });
+    function loadTex(srcs, done) {
+      if (!srcs.length) return;
+      loader.load(srcs[0], done, undefined, function () { loadTex(srcs.slice(1), done); });
     }
+    loadTex(texSources(TEX.day), function (t) { if (destroyed) return; t.encoding = T.sRGBEncoding; t.anisotropy = 8; uniforms.dayMap.value = t; dayTex.dispose(); });
+    loadTex(texSources(TEX.night), function (t) { if (destroyed) return; t.encoding = T.sRGBEncoding; uniforms.nightMap.value = t; nightTex.dispose(); });
 
     var routeGroup = new T.Group();
     scene.add(routeGroup);

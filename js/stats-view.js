@@ -45,6 +45,7 @@
       var achs = A.list(), got = achs.filter(function (a) { return a.unlocked; }).length;
       var landed = S.flights.filter(function (f) { return f.status === "landed"; });
       self._charts = [];
+      var token = self._token = {};   // a later mount makes this one stale
 
       ui.topbar(ui.topbarTitle("Stats"), '<span class="leg-tag">' + tier.name.toUpperCase() + " · " + t.miles.toLocaleString() + " MI</span>");
 
@@ -137,7 +138,7 @@
         box.innerHTML = '<svg viewBox="0 0 100 100" class="svg-donut">' + (paths || '<circle cx="50" cy="50" r="46" stroke="' + rule + '" stroke-width="14" fill="none"/>') + "</svg>";
       }
       SF.lib.load("chart").then(function () {
-        if (!root.isConnected || !document.getElementById("cDays")) return;
+        if (self._token !== token || !document.getElementById("cDays")) return;
         var C = window.Chart, reduce = ui.reducedMotion();
         C.defaults.font.family = "'IBM Plex Mono', monospace";
         C.defaults.font.size = 11;
@@ -159,7 +160,7 @@
           data: { labels: tags.map(function (g) { return g.name; }), datasets: [{ data: tags.map(function (g) { return Math.round(g.minutes); }), backgroundColor: tags.map(function (g) { return g.color; }), borderWidth: 0, hoverOffset: 6 }] },
           options: { animation: anim, cutout: "68%", maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return " " + c.label + ": " + SF.fmt.dur(c.parsed); } } } } }
         }));
-      }, function (e) { console.info("Charts: built-in bars (" + e.message + ")"); if (root.isConnected) fallback(); });
+      }, function (e) { console.info("Charts: built-in bars (" + e.message + ")"); if (self._token === token) fallback(); });
 
       /* ---------- routes map ---------- */
       var seen = {}, routes = [], marks = {};
@@ -178,6 +179,7 @@
       self._map = mapObj;
     },
     unmount: function () {
+      this._token = null;
       (this._charts || []).forEach(function (c) { try { c.destroy(); } catch (e) { /* gone */ } });
       this._charts = [];
       if (this._map) this._map.api.destroy();

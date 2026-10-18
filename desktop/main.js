@@ -340,7 +340,8 @@ ipcMain.on("app:firstRunDone", (e) => { if (fromMain(e)) { state.firstRunDone = 
    SKYFOCUS_EXEC   JavaScript run in the main window after load
    SKYFOCUS_SHOT   path for a PNG of the main window (and SKYFOCUS_SHOT.pill.png when the pill is open)
    SKYFOCUS_LOG    path for the console log of both windows
-   SKYFOCUS_WAIT   milliseconds to wait before the capture (default 6000), then quit */
+   SKYFOCUS_WAIT   milliseconds to wait before the capture (default 6000), then quit
+   SKYFOCUS_OFFLINE  1 to run with the network disabled */
 function testHooks() {
   const log = process.env.SKYFOCUS_LOG, NL = require("os").EOL;
   if (log) {
@@ -350,6 +351,9 @@ function testHooks() {
     };
     app.on("browser-window-created", (e, w) => w.webContents.on("console-message", write(w === pillWin ? "pill" : "main")));
     if (win) win.webContents.on("console-message", write("main"));
+  }
+  if (process.env.SKYFOCUS_OFFLINE) {   // SKYFOCUS_OFFLINE=1: every network request fails, as with no connection
+    win.webContents.session.webRequest.onBeforeRequest({ urls: ["http://*/*", "https://*/*"] }, (d, cb) => cb({ cancel: true }));
   }
   const shot = process.env.SKYFOCUS_SHOT;
   if (!shot && !process.env.SKYFOCUS_EXEC) return;

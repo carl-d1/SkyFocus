@@ -5,43 +5,59 @@
 (function () {
   var SF = (window.SF = window.SF || {});
 
-  /* ---------- CDN libraries: pinned, loaded on demand, with a timeout ---------- */
+  /* ---------- libraries: pinned, loaded on demand from vendor/ (offline), the CDN as a backup ---------- */
+  var CDNJS = "https://cdnjs.cloudflare.com/ajax/libs/", JSDELIVR = "https://cdn.jsdelivr.net/npm/";
   var LIBS = {
     leaflet: {
-      css: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css",
-      js: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
+      css: ["vendor/leaflet/1.9.4/leaflet.min.css", CDNJS + "leaflet/1.9.4/leaflet.min.css"],
+      js: ["vendor/leaflet/1.9.4/leaflet.min.js", CDNJS + "leaflet/1.9.4/leaflet.min.js"],
+      tiles: true,   // useless without map tiles, so ?offline=1 skips it
       ready: function () { return !!window.L; }
     },
     chart: {
-      js: "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js",
+      js: ["vendor/chart.js/4.4.1/chart.umd.min.js", CDNJS + "Chart.js/4.4.1/chart.umd.min.js"],
       ready: function () { return !!window.Chart; }
     },
     three: {
-      js: "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js",
+      js: ["vendor/three/0.149.0/three.min.js", JSDELIVR + "three@0.149.0/build/three.min.js"],
       ready: function () { return !!window.THREE; }
     }
   };
+  function remote(u) { return /^https?:/.test(u); }
+  // Load one script from the first source that works.
+  function script(srcs, ready) {
+    return srcs.reduce(function (chain, src) {
+      return chain.catch(function () {
+        if (ready()) return;
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement("script");
+          s.src = src; s.async = true;
+          if (remote(src)) s.crossOrigin = "anonymous";
+          var t = setTimeout(function () { s.remove(); reject(new Error("timed out")); }, 10000);
+          s.onload = function () { clearTimeout(t); ready() ? resolve() : reject(new Error("did not initialise")); };
+          s.onerror = function () { clearTimeout(t); s.remove(); reject(new Error("failed to load")); };
+          document.head.appendChild(s);
+        });
+      });
+    }, Promise.reject(new Error("start")));
+  }
   var pending = {};
   SF.lib = {
-    ready: function (name) { return !SF.forceOffline && LIBS[name].ready(); },
+    ready: function (name) { return !(SF.forceOffline && LIBS[name].tiles) && LIBS[name].ready(); },
     load: function (name) {
       var lib = LIBS[name];
-      if (SF.forceOffline) return Promise.reject(new Error("offline mode"));
+      if (SF.forceOffline && lib.tiles) return Promise.reject(new Error("offline mode"));
       if (lib.ready()) return Promise.resolve();
       if (pending[name]) return pending[name];
-      pending[name] = new Promise(function (resolve, reject) {
-        if (lib.css) {
-          var l = document.createElement("link");
-          l.rel = "stylesheet"; l.href = lib.css; l.crossOrigin = "anonymous";
-          document.head.appendChild(l);
-        }
-        var s = document.createElement("script");
-        s.src = lib.js; s.crossOrigin = "anonymous"; s.async = true;
-        var t = setTimeout(function () { reject(new Error(name + " timed out")); }, 10000);
-        s.onload = function () { clearTimeout(t); lib.ready() ? resolve() : reject(new Error(name + " did not initialise")); };
-        s.onerror = function () { clearTimeout(t); reject(new Error(name + " failed to load")); };
-        document.head.appendChild(s);
-      });
+      var srcs = SF.forceOffline ? lib.js.filter(function (u) { return !remote(u); }) : lib.js;
+      if (lib.css) {
+        // the stylesheet: local first, the CDN copy only if the local one fails
+        var l = document.createElement("link");
+        l.rel = "stylesheet"; l.href = lib.css[0];
+        l.onerror = function () { if (lib.css[1]) { l.onerror = null; l.crossOrigin = "anonymous"; l.href = lib.css[1]; } };
+        document.head.appendChild(l);
+      }
+      pending[name] = script(srcs, lib.ready).catch(function (e) { throw new Error(name + " " + e.message); });
       pending[name].catch(function () { pending[name] = null; });
       return pending[name];
     }
@@ -67,15 +83,30 @@
     create: function (el, wanted, opts) {
       opts = opts || {};
       var state = { route: null, ro: null, frac: 0, extra: null, camera: opts.camera || "route", markers: null, routes: null, track: null };
-      var cur = null, destroyed = false;
+      var cur = null, destroyed = false, offline = false;
       var wrap = { mode: null, api: null };
+      var TILED = { classic: 1, satellite: 1 };
+      // a small note on the map while tiles cannot load and the built-in map stands in
+      function offlineNote() {
+        var n = el.querySelector(".map-offline");
+        var show = TILED[wanted] && wrap.mode !== wanted && (offline || SF.forceOffline);
+        if (show && !n) el.insertAdjacentHTML("beforeend", '<span class="map-offline" role="status"><i></i>Offline · built-in map</span>');
+        else if (!show && n) n.remove();
+      }
+      function online() { if (offline && !destroyed) { offline = false; if (SF.lib.ready("leaflet")) build(wanted); } }
+      window.addEventListener("online", online);
 
       function build(id) {
         el.innerHTML = "";
         var o = Object.assign({}, opts, {
           camera: state.camera,
           // a provider reports that it cannot work here (no tiles, no WebGL)
-          fail: function (why) { if (!destroyed && wrap.mode === id) { console.info("Map: using built-in map (" + why + ")"); build(backupFor(wanted)); } }
+          fail: function (why) {
+            if (destroyed || wrap.mode !== id) return;
+            console.info("Map: using built-in map (" + why + ")");
+            if (/tiles/.test(why)) offline = true;
+            build(backupFor(wanted));
+          }
         });
         var made;
         try { made = providers[id].create(el, o); }
@@ -93,6 +124,7 @@
         if (state.routes && cur.setRoutes) cur.setRoutes(state.routes);
         if (state.track && cur.setTrack) cur.setTrack(state.track);
         cur.setCamera(state.camera, true);
+        offlineNote();
         if (opts.onMode) opts.onMode(id);
       }
 
@@ -138,7 +170,7 @@
         setPreview: function (p) { if (cur.setPreview) cur.setPreview(p); },
         replay: function (pts, ms) { if (cur.replay) cur.replay(pts, ms); },
         resize: function () { if (cur.resize) cur.resize(); },
-        destroy: function () { destroyed = true; bankS.stop(); if (cur && cur.destroy) cur.destroy(); }
+        destroy: function () { destroyed = true; window.removeEventListener("online", online); bankS.stop(); if (cur && cur.destroy) cur.destroy(); }
       };
       return wrap;
     }
