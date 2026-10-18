@@ -75,11 +75,15 @@ function serve() {
 }
 
 /* ---------- guards shared by both windows ---------- */
+function openExternal(url) {
+  if (TEST) { testLog("external " + url); return; }
+  shell.openExternal(url);
+}
 function guard(wc) {
   wc.on("will-navigate", (e, target) => {
-    if (!target.startsWith(ORIGIN)) { e.preventDefault(); if (/^https?:/i.test(target)) shell.openExternal(target); }
+    if (!target.startsWith(ORIGIN)) { e.preventDefault(); if (/^https?:/i.test(target)) openExternal(target); }
   });
-  wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) shell.openExternal(url); return { action: "deny" }; });
+  wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) openExternal(url); return { action: "deny" }; });
   wc.on("will-attach-webview", (e) => e.preventDefault());
   wc.session.setPermissionRequestHandler((w, perm, cb) => cb(perm === "notifications" || perm === "fullscreen"));
 }
