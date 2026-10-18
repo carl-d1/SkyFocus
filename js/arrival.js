@@ -104,6 +104,31 @@
     SF.store.update(function (s) { s.flights.forEach(function (f) { if (f.id === id) fn(f); }); });
   }
 
+  /* ---------- a new stamp lands: thud, ink splash, the page gives a little ---------- */
+  function inkSplash(wrap) {
+    if (!wrap || SF.ui.reducedMotion()) return;
+    var svg = wrap.querySelector(".stamp");
+    // wait for the landing scene to fade so the moment is seen
+    var delay = SF.scenes && SF.scenes.playing ? 900 : 200;
+    svg.style.animationDelay = delay + "ms";
+    setTimeout(function () {
+      if (!wrap.isConnected) return;
+      var ink = (svg.querySelector("[stroke]:not([stroke='none'])") || svg).getAttribute("stroke") || "#c8432f";
+      var q = (SF.store.state.settings.graphics) || "high", n = q === "low" ? 6 : q === "balanced" ? 10 : 15;
+      // layout sizes (not the bounding box, which still carries the thud transform)
+      var cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2, R = Math.min(svg.clientWidth, svg.clientHeight) * .45;
+      var rng = SF.rng(Date.now()), dots = "";
+      for (var i = 0; i < n; i++) {
+        var a = rng() * Math.PI * 2, d = R * (.82 + rng() * .3), size = 1.2 + rng() * (i < 3 ? 5 : 2.6);
+        var x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
+        dots += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + size.toFixed(1) + '" style="--dx:' + (-Math.cos(a) * 18).toFixed(1) + "px;--dy:" + (-Math.sin(a) * 18).toFixed(1) + "px;animation-delay:" + Math.round(rng() * 60) + 'ms"/>';
+      }
+      wrap.insertAdjacentHTML("beforeend", '<svg class="ink-splash" aria-hidden="true" fill="' + ink + '">' + dots + "</svg>");
+      var page = wrap.closest(".passport-page");
+      if (page) { page.classList.remove("jolt"); void page.offsetWidth; page.classList.add("jolt"); }
+    }, delay + 250);
+  }
+
   /* ---------- journey cards ---------- */
   function itineraryList(legs, doneUpTo, nowIdx) {
     return '<ol class="itinerary">' + legs.map(function (l, i) {
@@ -160,7 +185,7 @@
         "<div><dt>Miles</dt><dd>+" + rec.miles.toLocaleString() + "</dd></div>" +
         "<div><dt>Distance</dt><dd>" + SF.fmt.dist(rec.flownKm) + "</dd></div>" +
         "<div><dt>Turbulence</dt><dd>" + rec.turbulence + "</dd></div>" +
-        "<div><dt>Holds</dt><dd>" + rec.holds + " OF " + SF.flight.MAX_HOLDS + "</dd></div>" +
+        "<div><dt>Holds</dt><dd>" + rec.holds + " OF " + SF.flight.maxHolds(rec) + "</dd></div>" +
         '<div><dt>Class</dt><dd><span class="tag-pill" style="--tag:' + rec.tagColor + '">' + SF.esc(rec.tagName) + "</span></dd></div>" +
         '<div class="wide"><dt>Task</dt><dd>' + (rec.task ? SF.esc(rec.task) : "Not entered") + "</dd></div>" +
         "</dl>" +
@@ -181,6 +206,7 @@
         nextCard(rec, here, breaks) +
         "</aside></div>";
 
+      inkSplash(root.querySelector(".stamp-wrap.fresh"));
       var chart = SF.FallbackMap(root.querySelector("#arrChart"), { camera: "route", showPlane: false, night: false, padPx: 24, label: "Route chart" });
       chart.setRoute(SF.airport(rec.from), SF.airport(rec.to));
       chart.setProgress(rec.track ? rec.track.routeFrac : rec.flownKm / Math.max(1, rec.distanceKm));

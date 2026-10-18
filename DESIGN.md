@@ -51,6 +51,12 @@ Spacing uses only these values: **4, 8, 12, 16, 24, 32, 48 and 64 px** (`--s-1` 
 - **Side-by-side cards** share a grid row, so their top and bottom edges match.
 - **Maps** fit the route into the free area left between panels (`insets`), with 48px of padding. Panels never cover the route or its markers.
 
+## Motion
+
+- UI movement uses springs, not linear fades. CSS transitions use `var(--spring)`, `var(--spring-soft)` or `var(--spring-snap)`, which `js/motion.js` fills with real spring curves through `linear()`. Anything that follows input (tilt, flip, banking) uses `SF.motion.spring()`.
+- Reduced motion (system or Settings) turns springs into jumps, swaps 3D scenes for the 2D side view and drops page transitions.
+- Graphics quality: Low gives the static logo instead of the hero plane, fewer clouds and particles, no refraction.
+
 ## Copy
 Copy is short and operational: "Boarding closed", "Hold 1 of 2", "Diverted", "Stamp issued".
 

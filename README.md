@@ -36,7 +36,7 @@ Design rules (materials, spacing scale, layout grid, copy) are in [DESIGN.md](DE
 
 | Key | Action |
 |---|---|
-| Space | Hold / resume (holding pattern, max 2 per flight, 10 min each) |
+| Space | Hold / resume (holding pattern, one per full hour of the flight (at least one), 10 min each) |
 | M | Cycle map modes |
 | C | Camera: follow plane / whole route |
 | W | Window view |
@@ -110,10 +110,12 @@ Done:
 - Holding pattern: while holding, the plane flies a racetrack loop at its position on every map. Each flight records its real track (route progress plus every hold), shown on the arrival report's route chart and replayed in the logbook.
 - Pomodoro journeys: book a chain of 2 to 8 legs (or an open journey) between nearby airports. Each leg is a normal focus flight, layovers are the breaks (short after each leg, long after every Nth), with optional auto boarding. Lengths are set in Settings, and the logbook groups the legs of each journey.
 - Takeoff and landing scenes: after boarding, a skippable 3D takeoff (line up, roll with runway lights streaking, rotation, gear up, climb through cloud) hands over to the in-flight map. Each landing plays a descent through cloud, touchdown with a small bounce and tyre smoke, and rollout before the arrival report. Lighting follows the real sun at the airport, including night with runway, approach and city lights. Reduced motion, no WebGL or no network gives a 2D side view instead. Settings has a switch to turn the scenes off. The countdown is gone, and Board stays locked until the pre-departure check is complete.
+- Motion pass: real spring curves for UI transitions (`js/motion.js`), a 3D hero plane on the check-in screen and booking sheet that tilts toward the pointer, hover previews on the booking map (the city pulses and an arc traces to it), a boarding pass that slides in, turns over to its printed reverse and tears along the perforation, a destination card that morphs into the pass on the way to the gate (View Transitions), banking into turns and a slow camera drift in flight, and an ink splash when a new stamp lands.
+- Holds scale with the flight: one per full hour of block time, at least one.
 
 Next:
 - Window view and Web Audio (the scenes already call `SF.audio.engine(level)` and `SF.audio.touchdown(strength)`)
-- The wider motion pass (home 3D plane, pass flip and tear, shared-element transitions, spring physics)
+- Stats, achievements and tiers (the achievement and tier cards get the 3D flip with a light sweep)
 - Stats dashboard, achievements and frequent-flyer tiers
 
 ## Credits

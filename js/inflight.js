@@ -230,7 +230,7 @@
         $("remKm").textContent = SF.fmt.dist(st.remainingKm);
         $("eta").textContent = SF.fmt.time(st.eta);
         $("etaLocal").textContent = SF.fmt.localTime(B.tz, st.eta);
-        var used = cur.holds, max = SF.flight.MAX_HOLDS;
+        var used = cur.holds, max = SF.flight.maxHolds(cur);
         $("holdTxt").textContent = st.paused ? "Resume" : "Hold";
         $("holdsLeft").textContent = st.paused ? "HOLD " + used + " OF " + max + " · " + SF.fmt.clock(st.holdLeftMs) : used + " OF " + max + " USED";
         $("holdBtn").querySelector(".icon").outerHTML = SF.icon(st.paused ? "play" : "pause");

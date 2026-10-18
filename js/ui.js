@@ -122,7 +122,21 @@
   };
   ui.currentRoute = function () { return currentName; };
 
+  // Route changes run inside a view transition where supported, so named elements (the destination
+  // card and the boarding pass) morph between screens instead of cutting. Not while a takeoff or
+  // landing scene is on screen, and not with reduced motion.
   ui.render = function () {
+    var vt = document.startViewTransition && current && !ui.reducedMotion() && !(SF.scenes && SF.scenes.playing) && !document.hidden;
+    if (!vt) { renderNow(); return; }
+    var html = document.documentElement;
+    html.classList.add("vt-run");
+    try {
+      var t = document.startViewTransition(renderNow);
+      t.finished.then(done, done);
+    } catch (e) { done(); renderNow(); }
+    function done() { html.classList.remove("vt-run"); }
+  };
+  function renderNow() {
     var r = ui.parseHash();
     var st = SF.store.state;
     if (!st.profile.onboarded && r.name !== "welcome" && r.name !== "lab") { ui.go("welcome"); return; }
@@ -145,7 +159,7 @@
     ui.updateNav();
     root.focus({ preventScroll: true });
     window.scrollTo(0, 0);
-  };
+  }
 
   // Fill the shared top bar's side slots. Strings or nodes.
   ui.topbar = function (left, right) {

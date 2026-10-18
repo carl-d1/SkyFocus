@@ -74,6 +74,20 @@
     finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
   }
 
+  // The reverse of the pass: conditions of carriage, printed on the same paper.
+  SF.renderPassBack = function (f) {
+    return ui.h('<div class="pass-back" aria-hidden="true">' +
+      '<div class="pb-stub"><img src="assets/logo.svg" alt="" width="40" height="40"><span class="pb-brand">SkyFocus</span><span class="form-no">' + f.flightNo + "</span></div>" +
+      '<div class="pb-main"><div class="pb-stripe"></div>' +
+      '<p class="pb-title">Conditions of carriage</p><ol class="pb-terms">' +
+      "<li>Valid for one focus session on the flight shown. Not transferable.</li>" +
+      "<li>Holds: " + SF.flight.maxHolds(f) + " on this flight (one per full hour of block time), up to 10 minutes each.</li>" +
+      "<li>Leaving the cabin during flight is logged as turbulence.</li>" +
+      "<li>A diverted flight is logged without a passport stamp.</li>" +
+      "<li>Keep the stub until arrival.</li></ol>" +
+      '<span class="form-no">FORM SF-07 · REVERSE</span></div></div>');
+  };
+
   /* ---------- gate view ---------- */
   var DND = ["Turn on YPT", "Other tabs closed", "Water ready", "Materials open"];
 
@@ -98,7 +112,7 @@
           return '<li><label><input type="checkbox" data-i="' + i + '"><span class="tick">' + SF.icon("check") + "</span><span>" + d + "</span></label></li>";
         }).join("") + "</ul>" : "") +
         '<label class="switch"><input type="checkbox" id="apMode"><span class="track"><span class="thumb"></span></span><span><b>Airplane mode</b><small>Fullscreen. Non-essential UI hidden. Key F.</small></span></label>' +
-        '<p class="small-print">' + SF.icon("shield") + "Guard <b>" + guard + "</b> · Holds <b>" + SF.flight.MAX_HOLDS + "</b></p>" +
+        '<p class="small-print">' + SF.icon("shield") + "Guard <b>" + guard + "</b> · Holds <b>" + SF.flight.maxHolds(af) + "</b></p>" +
         (SF.dev ? '<p class="dev-note">' + SF.icon("flask") + "DEV: TIME ×60</p>" : "") +
         '<button class="btn btn-signal btn-lg block" id="boardBtn">' + SF.icon("takeoff") + "<span>Board</span></button>" +
         "</aside></div>";
@@ -119,7 +133,26 @@
       }
       checks.forEach(function (c) { c.addEventListener("change", checkGate); });
       checkGate();
-      root.querySelector("#passWrap").appendChild(pass);
+      // flip card: front and reverse, turned with a spring and tilted toward the pointer
+      var flipBox = ui.h('<div class="pass-flip"><div class="pass-card" role="button" tabindex="0" aria-label="Turn the boarding pass over"></div></div>');
+      var card = flipBox.firstChild;
+      card.appendChild(pass);
+      card.appendChild(SF.renderPassBack(af));
+      var passWrap = root.querySelector("#passWrap");
+      passWrap.appendChild(flipBox);
+      passWrap.appendChild(ui.h('<button type="button" class="btn btn-text small pass-turn" id="passTurn">' + SF.icon("refresh") + "<span>Turn over</span></button>"));
+      var flipped = false;
+      var flipS = SF.motion.spring({ stiffness: 110, damping: 13, onUpdate: function (v) { card.style.setProperty("--flip", v.toFixed(2) + "deg"); } });
+      function turn(to) {
+        flipped = to == null ? !flipped : to;
+        flipS.set(flipped ? 180 : 0);
+        card.classList.toggle("is-back", flipped);
+      }
+      card.addEventListener("click", function () { if (!boarded) turn(); });
+      card.addEventListener("keydown", function (e) { if ((e.key === "Enter" || e.key === " ") && !boarded) { e.preventDefault(); turn(); } });
+      root.querySelector("#passTurn").onclick = function () { if (!boarded) turn(); };
+      self._untilt = SF.motion.tilt(flipBox, 4);
+      if (document.documentElement.classList.contains("vt-run")) flipBox.classList.add("no-intro");
       document.getElementById("backBook").onclick = function () {
         // leaving the gate during a journey ends the journey (no leg is lost: this one has not departed)
         if (af.journeyId && SF.journey.active()) SF.journey.end();
@@ -153,10 +186,11 @@
         this.querySelector("span").textContent = "Boarding closed";
         if (SF.audio && SF.audio.unlock) SF.audio.unlock();
         if (ap) SF.ui.enterFullscreen();
-        var reduce = ui.reducedMotion();
-        pass.classList.add("stamped");
-        timers.push(setTimeout(function () { pass.classList.add("torn"); }, reduce ? 0 : 450));
-        timers.push(setTimeout(function () { takeoff(ap); }, reduce ? 200 : 1100));
+        var reduce = ui.reducedMotion(), wait = flipped && !reduce ? 650 : 0;
+        if (flipped) turn(false);
+        timers.push(setTimeout(function () { pass.classList.add("stamped"); }, wait));
+        timers.push(setTimeout(function () { pass.classList.add("torn"); }, wait + (reduce ? 0 : 450)));
+        timers.push(setTimeout(function () { takeoff(ap); }, wait + (reduce ? 200 : 1300)));
       };
       SF.scenes.preload();
 
@@ -180,6 +214,8 @@
     },
     unmount: function () {
       (this._timers || []).forEach(function (t) { clearTimeout(t); clearInterval(t); });
+      if (this._untilt) this._untilt();
+      this._untilt = null;
     }
   };
 })();

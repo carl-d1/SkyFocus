@@ -161,6 +161,7 @@
       airliner.position.copy(st.p);
       airliner.up.copy(st.p).normalize();
       airliner.lookAt(st.next.x === st.p.x && st.next.y === st.p.y ? st.p.clone().multiplyScalar(1.1) : st.next);
+      baseQ.copy(airliner.quaternion);
       if (st.loop) {
         holdLine = new T.Line(new T.BufferGeometry().setFromPoints(st.loop), holdMat);
         routeGroup.add(holdLine);
@@ -201,13 +202,21 @@
       });
       labels.innerHTML = html;
     }
+    // banking (from the map manager) plus a slow sway, and a slight drift of the camera
+    var baseQ = new T.Quaternion(), bank = 0, t0 = performance.now();
     function loop() {
       if (destroyed) return;
       raf = requestAnimationFrame(loop);
       if (Date.now() > manualUntil && !drag) { yaw *= .94; pitch *= .94; }
-      var t = cameraTarget(), k = SF.ui && SF.ui.reducedMotion() ? 1 : .06;
+      var still = SF.ui && SF.ui.reducedMotion(), s = (performance.now() - t0) / 1000;
+      var t = cameraTarget(), k = still ? 1 : .06;
       camPos.lerp(t.pos, k); camLook.lerp(t.look, k);
+      if (airliner.visible) {
+        airliner.quaternion.copy(baseQ);
+        airliner.rotateZ(-(bank + (still ? 0 : Math.sin(s * .6) * 2)) * Math.PI / 180);
+      }
       camera.position.copy(camPos);
+      if (!still) camera.position.add(new T.Vector3(Math.sin(s * .13), Math.cos(s * .11) * .7, Math.sin(s * .09 + 1) * .5).multiplyScalar(camPos.length() * .004));
       camera.lookAt(camLook);
       renderer.render(scene, camera);
       drawLabels();
@@ -236,6 +245,7 @@
         frac = 0; extra = null; rebuildRoute(); placePlane(planeState());
       },
       clearRoute: function () { route = null; markers = []; rebuildRoute(); placePlane(null); },
+      setBank: function (deg) { bank = deg; },
       setProgress: function (f, ex) {
         if (!route) return;
         frac = Math.max(0, Math.min(1, f)); extra = ex || null;

@@ -254,3 +254,12 @@ body.airplane .app { grid-template-columns: minmax(0, 1fr); }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+
+/* Page transitions (View Transitions API): a short crossfade for every route, and the destination
+   card morphing into the boarding pass on the way to the gate. The rail stays put. */
+.nav { view-transition-name: rail; }
+.view-book #destCard, .view-board .pass-flip { view-transition-name: pass-head; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .26s; }
+::view-transition-group(pass-head) { animation-duration: .6s; animation-timing-function: var(--spring-soft, ease); }
+::view-transition-old(pass-head), ::view-transition-new(pass-head) { height: 100%; object-fit: fill; }
+::view-transition-group(rail) { animation: none; }

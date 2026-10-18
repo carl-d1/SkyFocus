@@ -101,17 +101,40 @@
           function (e) { console.info("Map: using built-in map (" + e.message + ")"); });
       }
 
+      // Bank angle from the rate of turn: a standard-rate turn (3 deg/s) is about 25 degrees of bank.
+      // Mostly visible in the holding pattern; along the great circle it stays near level.
+      var bankS = SF.motion.spring({ stiffness: 24, damping: 9, onUpdate: function (v) { if (cur && cur.setBank) cur.setBank(v); } });
+      var lastHdg = null, lastT = 0;
+      function trackBank() {
+        if (!state.route || !cur || !cur.setBank) return;
+        var a = state.route[0], b = state.route[1], h = state.extra && state.extra.hold, hdg;
+        if (h) {
+          var fix = SF.geo.interpolate(a, b, state.frac);
+          hdg = SF.geo.bearing(SF.geo.holdPos(fix, h.heading, h.sizeKm, h.phase), SF.geo.holdPos(fix, h.heading, h.sizeKm, h.phase + .004));
+        } else {
+          var f = Math.min(state.frac, .995);
+          hdg = SF.geo.bearing(SF.geo.interpolate(a, b, f), SF.geo.interpolate(a, b, f + .004));
+        }
+        var now = performance.now();
+        if (lastHdg != null && now - lastT > 50) {
+          var dh = ((hdg - lastHdg + 540) % 360) - 180, rate = dh / ((now - lastT) / 1000);
+          bankS.set(Math.max(-25, Math.min(25, rate * 8)));
+        }
+        if (lastHdg == null || now - lastT > 50) { lastHdg = hdg; lastT = now; }
+      }
+
       wrap.api = {
         setRoute: function (a, b, ro) { state.route = [a, b]; state.frac = 0; state.extra = null; cur.setRoute(a, b, ro); },
         clearRoute: function () { state.route = null; cur.clearRoute(); },
-        setProgress: function (frac, extra) { state.frac = frac; state.extra = extra || null; cur.setProgress(frac, extra); },
+        setProgress: function (frac, extra) { state.frac = frac; state.extra = extra || null; cur.setProgress(frac, extra); trackBank(); },
         setCamera: function (c, instant) { state.camera = c; cur.setCamera(c, instant); },
         setMarkers: function (list) { state.markers = list; cur.setMarkers(list); },
         setRoutes: function (list) { state.routes = list; if (cur.setRoutes) cur.setRoutes(list); },
         setTrack: function (pts) { state.track = pts; if (cur.setTrack) cur.setTrack(pts); },
+        setPreview: function (p) { if (cur.setPreview) cur.setPreview(p); },
         replay: function (pts, ms) { if (cur.replay) cur.replay(pts, ms); },
         resize: function () { if (cur.resize) cur.resize(); },
-        destroy: function () { destroyed = true; if (cur && cur.destroy) cur.destroy(); }
+        destroy: function () { destroyed = true; bankS.stop(); if (cur && cur.destroy) cur.destroy(); }
       };
       return wrap;
     }

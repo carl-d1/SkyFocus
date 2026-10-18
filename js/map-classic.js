@@ -56,6 +56,8 @@
     var trackLine = L.polyline([], { className: "lf-track", interactive: false }).addTo(map);
     var routesLayer = L.layerGroup().addTo(map);
     var markerLayer = L.layerGroup().addTo(map);
+    var previewLayer = L.layerGroup().addTo(map);
+    var previewFit = false;
     var planeIcon = L.divIcon({ className: "lf-plane", iconSize: [36, 36], iconAnchor: [18, 18],
       html: '<svg viewBox="0 0 24 24" width="36" height="36"><path class="shadow" transform="translate(.8 1.2)" d="' + PLANE + '"/><path d="' + PLANE + '"/></svg>' });
     var plane = L.marker([0, 0], { icon: planeIcon, interactive: false, keyboard: false, zIndexOffset: 1000 });
@@ -114,7 +116,7 @@
       plane.setLatLng(ll(p));
       if (!map.hasLayer(plane)) plane.addTo(map);
       var el = plane.getElement();
-      if (el) { var svg = el.querySelector("svg"); if (svg) svg.style.transform = "rotate(" + hdg + "deg)"; }
+      if (el) { var svg = el.querySelector("svg"); if (svg) svg.style.transform = "rotate(" + hdg + "deg) scaleX(var(--bank-sx, 1))"; }
       return p;
     }
     function fitRoute(animate) {
@@ -181,6 +183,23 @@
         list.forEach(function (r) { L.polyline(SF.geo.arcPoints(r.from, r.to, 48).map(ll), { className: "lf-routes " + (r.cls || ""), interactive: false }).addTo(routesLayer); });
       },
       setTrack: function (pts) { trackLine.setLatLngs((pts || []).map(ll)); },
+      // Seen from above, a banked aircraft shows a narrower wingspan.
+      setBank: function (deg) { host.style.setProperty("--bank-sx", Math.cos(deg * Math.PI / 180).toFixed(3)); },
+      // Hover preview: a pulsing city and a dashed arc to it. If the city is outside the free area the
+      // map eases out to include it, and back to the route when the preview clears.
+      setPreview: function (p) {
+        previewLayer.clearLayers();
+        if (!p) { if (previewFit) { previewFit = false; camUpdate(true); } return; }
+        var ref = p.from.lon, to = near({ lat: p.to.lat, lon: p.to.lon }, ref);
+        var pt = map.latLngToContainerPoint(ll(to)), pd = padding(), sz = map.getSize();
+        if (pt.x < pd.tl[0] || pt.y < pd.tl[1] || pt.x > sz.x - pd.br[0] || pt.y > sz.y - pd.br[1]) {
+          previewFit = true;
+          map.fitBounds(L.latLngBounds([ll(p.from), ll(to)].concat(route ? route.pts.map(ll) : [])), { paddingTopLeft: pd.tl, paddingBottomRight: pd.br, animate: true, duration: .6, maxZoom: 9 });
+        }
+        L.polyline(SF.geo.arcPoints(p.from, p.to, 64).map(ll), { className: "lf-preview", interactive: false }).addTo(previewLayer);
+        L.marker(ll(to), { interactive: false, keyboard: false, icon: L.divIcon({ className: "lf-mark m-hover", iconSize: [10, 10], iconAnchor: [5, 5],
+          html: "<i></i><b>" + p.to.iata + "</b>" }) }).addTo(previewLayer);
+      },
       resize: function () { map.invalidateSize(); camUpdate(false); },
       destroy: function () {
         destroyed = true;

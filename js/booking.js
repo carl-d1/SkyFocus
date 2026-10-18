@@ -83,7 +83,7 @@
         '<div class="stage" id="routeMap"></div>' +
         '<div class="book">' +
         '<section class="glass sheet book-sheet" id="bookSheet" aria-label="Book a flight">' +
-        '<header class="sheet-head"><div><p class="label">' + SF.esc((S.profile.name || "Passenger").toUpperCase()) + '</p><h1>Book flight</h1></div><span class="form-no">FORM SF-01</span></header>' +
+        '<header class="sheet-head"><div><p class="label">' + SF.esc((S.profile.name || "Passenger").toUpperCase()) + '</p><h1>Book flight</h1></div><div class="sheet-hero" id="bookHero" aria-hidden="true"></div><span class="form-no">FORM SF-01</span></header>' +
         '<div class="sheet-body">' +
         '<div id="pendingSlot"></div>' +
         '<label class="field row"><span class="label">From</span><div><input id="fromInput" aria-label="Departure airport"></div></label>' +
@@ -259,7 +259,26 @@
         }
         reveal();
       }
+      /* ---------- hover preview: the city pulses and an arc traces to it ---------- */
+      var previewKey = null;
+      function preview(e) {
+        if (!mapObj) return;
+        var el = e.target.closest && e.target.closest(".dc-options [data-code], .dest[data-code], .itinerary li[data-leg]");
+        var key = el ? (el.getAttribute("data-code") || "leg" + el.getAttribute("data-leg")) : null;
+        if (key === previewKey) return;
+        previewKey = key;
+        if (!el) { mapObj.api.setPreview(null); return; }
+        var leg = el.getAttribute("data-leg");
+        if (leg != null) { var l = sel.plan[+leg]; if (l) mapObj.api.setPreview({ from: SF.airport(l.from), to: SF.airport(l.to) }); return; }
+        if (el.getAttribute("data-code") === sel.to) { mapObj.api.setPreview(null); return; }
+        mapObj.api.setPreview({ from: SF.airport(sel.from), to: SF.airport(el.getAttribute("data-code")) });
+      }
+      root.addEventListener("pointerover", preview);
+      root.addEventListener("focusin", preview);
+      root.addEventListener("pointerleave", function () { previewKey = null; if (mapObj) mapObj.api.setPreview(null); });
+
       function reveal() {
+        if (mapObj) { previewKey = null; mapObj.api.setPreview(null); }
         renderCard();
         renderSummary();
         renderSeats();
@@ -291,7 +310,7 @@
             '<div class="dc-head"><p class="label">' + (sel.untilStop ? "Itinerary · open, first " + sel.plan.length + " legs" : "Itinerary · " + sel.plan.length + " legs") + "</p></div>" +
             '<ol class="itinerary">' + sel.plan.map(function (l, i) {
               var b = SF.airport(l.to), brk = i < sel.plan.length - 1 || sel.untilStop ? SF.journey.breakAfter(i + 1, jc) : null;
-              return '<li title="' + SF.esc(b.city) + '"><span class="readout it-n">' + String(i + 1).padStart(2, "0") + '</span><b class="mono">' + l.from + " → " + l.to + '</b><span class="it-city">' + SF.esc(b.city) + '</span><small class="mono">' + SF.fmt.dist(l.km) + "</small>" +
+              return '<li data-leg="' + i + '" title="' + SF.esc(b.city) + '"><span class="readout it-n">' + String(i + 1).padStart(2, "0") + '</span><b class="mono">' + l.from + " → " + l.to + '</b><span class="it-city">' + SF.esc(b.city) + '</span><small class="mono">' + SF.fmt.dist(l.km) + "</small>" +
                 (brk ? '<small class="it-break mono">+' + brk + " MIN</small>" : '<small class="it-break mono">END</small>') + "</li>";
             }).join("") + "</ol>" +
             '<dl class="dc-facts mono"><div><dt>Focus</dt><dd>' + SF.fmt.dur(sel.plan.length * jc.legMin) + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(total) + "</dd></div><div><dt>Stops</dt><dd>" + sel.plan.length + "</dd></div></dl>" +
@@ -475,7 +494,8 @@
       } else if (sel.mode === "journey") planJourney();
       else if (sel.mode === "time") pick(true);
       else reveal();
-      this._cleanup = function () { if (mapObj) mapObj.api.destroy(); };
+      var hero = SF.hero.mount($("bookHero"), { view: "side" });
+      this._cleanup = function () { hero.destroy(); if (mapObj) mapObj.api.destroy(); };
     },
     unmount: function () { if (this._cleanup) this._cleanup(); }
   };

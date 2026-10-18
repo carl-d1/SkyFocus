@@ -3,7 +3,8 @@
    in background tabs and survives reloads. */
 (function () {
   var SF = (window.SF = window.SF || {});
-  var MAX_HOLDS = 2;
+  // Holds allowed: one per full hour of block time, at least one.
+  function maxHolds(f) { return Math.max(1, Math.floor(((f && f.plannedMin) || 0) / 60)); }
   var HOLD_MAX_MS = 10 * 60000;
   var HOLD_LAP_MS = 4 * 60000;   // one racetrack lap, in flight time (a real hold is about 4 min)
 
@@ -79,7 +80,7 @@
 
   /* ---------- flight model ---------- */
   var flight = (SF.flight = {
-    MAX_HOLDS: MAX_HOLDS,
+    maxHolds: maxHolds,
     HOLD_MAX_MS: HOLD_MAX_MS,
     routeFrac: routeFrac,
     MILESTONES: MILESTONES,
@@ -338,8 +339,9 @@
         engine.tick();
         return true;
       }
-      if (af.holds >= MAX_HOLDS) {
-        SF.ui.toast("Hold unavailable. 2 of 2 used.", "alert");
+      var max = maxHolds(af);
+      if (af.holds >= max) {
+        SF.ui.toast("Hold unavailable. " + max + " of " + max + " used.", "alert");
         return false;
       }
       if (flight.status(af, now).done) return false;
@@ -348,7 +350,7 @@
         s.activeFlight.pauseStart = now;
         s.activeFlight.holds += 1;
       }, true);
-      SF.ui.announce("Hold " + af.holds + " of " + MAX_HOLDS, "Holding at present position. Maximum 10 minutes.", "pause");
+      SF.ui.announce("Hold " + af.holds + " of " + max, "Holding at present position. Maximum 10 minutes.", "pause");
       engine.emit("hold", { holding: true });
       engine.tick();
       return true;
