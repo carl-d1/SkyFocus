@@ -111,7 +111,7 @@
         journeyId: b.journeyId || null, legIndex: b.legIndex == null ? null : b.legIndex, legCount: b.legCount || null,
         bookedAt: Date.now(),
         cruiseAlt: cruiseAltFor(km),
-        timeScale: SF.dev ? 60 : 1,
+        timeScale: SF.speed(),
         started: false, startAt: null,
         pausedTotal: 0, pauseStart: null, holds: 0,
         turbulence: 0, awayMs: 0, awayStart: null,
@@ -427,15 +427,15 @@
     }
   });
 
-  /* ---------- distraction guard (Page Visibility) ---------- */
-  document.addEventListener("visibilitychange", function () {
+  /* ---------- distraction guard: leaving the cabin (hidden tab, or in the desktop app another app in front) ---------- */
+  engine.setAway = function (away) {
     var af = engine.active();
     if (!af || !af.started || af.pauseStart) return;
     var s = SF.store.state.settings;
     if (s.strictness === "off") return;
     var now = Date.now();
-    if (document.hidden) {
-      SF.store.update(function (st) { st.activeFlight.awayStart = now; }, true);
+    if (away) {
+      if (!af.awayStart) SF.store.update(function (st) { st.activeFlight.awayStart = now; }, true);
     } else if (af.awayStart) {
       var away = now - af.awayStart;
       if (s.strictness === "divert" && away > s.strictMinutes * 60000 / af.timeScale) {
@@ -453,5 +453,7 @@
       SF.ui.announce("Turbulence", "Cabin left for " + awayTxt + ". Event logged." +
         (s.strictness === "divert" ? " Diversion after " + s.strictMinutes + " min away." : ""), "alert");
     }
-  });
+  };
+  // The desktop app reports presence itself (focus, and the pill counts as being in the cabin).
+  document.addEventListener("visibilitychange", function () { if (!engine.presenceFromHost) engine.setAway(document.hidden); });
 })();

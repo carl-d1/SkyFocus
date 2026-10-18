@@ -57,4 +57,14 @@
 
   // F (outside the flight screen, where F is airplane mode) and the window fullscreen
   SF.toggleFullscreen = function () { D.toggleFullscreen(); };
+
+  /* ---------- presence for the distraction guard ----------
+     visible: the main window is on screen, or the pill is. focused: SkyFocus or its pill is the
+     active app. In airplane mode leaving focus counts as turbulence; otherwise only leaving view. */
+  SF.engine.presenceFromHost = true;
+  D.onPresence(function (p) {
+    var af = SF.store.state.activeFlight;
+    if (!p || !af) return;
+    SF.engine.setAway(af.airplaneMode ? !p.focused : !p.visible);
+  });
 })();

@@ -51,6 +51,7 @@
         '<button class="btn icon-only" id="camBtn" aria-label="Camera"></button>' +
         '<button class="btn icon-only" id="winBtn" title="Window view (W)" aria-label="Window view" aria-pressed="false">' + SF.icon("window") + "</button>" +
         '<button class="btn icon-only" id="sndBtn" title="Sound (N mutes)" aria-label="Sound" aria-expanded="false">' + SF.icon("volume") + "</button>" +
+        (!SF.desktop && SF.pill && SF.pill.supported() ? '<button class="btn icon-only" id="pipBtn" title="Mini pill (P)" aria-label="Open the mini pill">' + SF.icon("pill") + "</button>" : "") +
         '<button class="btn icon-only" id="apBtn" title="Airplane mode (F)" aria-label="Airplane mode" aria-pressed="false">' + SF.icon("expand") + "</button>" +
         "</div>");
 
@@ -179,6 +180,7 @@
         }
       }
       $("winBtn").onclick = function () { setWindow(!win); };
+      if ($("pipBtn")) $("pipBtn").onclick = function () { SF.openPill(); };
       offs.push(function () { if (win) win.destroy(); });
 
       /* ---------- sound ---------- */

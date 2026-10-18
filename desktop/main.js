@@ -49,7 +49,7 @@ function saveState() {
 
 let win = null, pillWin = null, tray = null, quitting = false;
 let snap = { kind: "idle" };   // the latest pill snapshot from the app
-let appFocused = true;
+let presence = { focused: true, visible: true };
 
 /* ---------- single instance ---------- */
 if (!app.requestSingleInstanceLock()) { app.quit(); }
@@ -126,8 +126,7 @@ function createMain() {
     }
   });
   win.on("closed", () => { win = null; });
-  win.on("blur", () => setTimeout(checkFocus, 80));
-  win.on("focus", () => setFocus(true));
+  ["blur", "focus", "minimize", "restore", "show", "hide"].forEach((ev) => win.on(ev, recheck));
 
   // F11 toggles fullscreen; Esc leaves it (the app still sees Esc)
   win.webContents.on("before-input-event", (e, input) => {
@@ -152,16 +151,18 @@ function showMain() {
 }
 function busy() { return snap.kind === "flight" || snap.kind === "layover"; }
 
-/* ---------- focus: leaving SkyFocus for another app (the pill does not count) ---------- */
+/* ---------- presence: is SkyFocus (or its pill) in front, and is it on screen at all ---------- */
 function checkFocus() {
   const f = BrowserWindow.getFocusedWindow();
-  setFocus(!!f && (f === win || f === pillWin));
+  const p = {
+    focused: !!f && (f === win || f === pillWin),
+    visible: !!(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()) || !!(pillWin && !pillWin.isDestroyed() && pillWin.isVisible())
+  };
+  if (p.focused === presence.focused && p.visible === presence.visible) return;
+  presence = p;
+  if (win && !win.isDestroyed()) win.webContents.send("app:presence", p);
 }
-function setFocus(v) {
-  if (v === appFocused) return;
-  appFocused = v;
-  if (win && !win.isDestroyed()) win.webContents.send("app:focus", v);
-}
+const recheck = () => setTimeout(checkFocus, 80);
 
 /* ---------- the mini pill ---------- */
 function workAreaFor(b) { return screen.getDisplayMatching(b).workArea; }
@@ -184,8 +185,9 @@ function openPill() {
   guard(pillWin.webContents);
   pillWin.loadURL(ORIGIN + "/desktop/pill.html");
   pillWin.once("ready-to-show", () => { pillWin.showInactive(); applyClickThrough(); pushPill(); });
-  pillWin.on("blur", () => setTimeout(checkFocus, 80));
-  pillWin.on("closed", () => { pillWin = null; });
+  if (process.env.SKYFOCUS_PILL_EXEC) pillWin.webContents.once("did-finish-load", () => setTimeout(() => pillWin && pillWin.webContents.executeJavaScript(process.env.SKYFOCUS_PILL_EXEC, true).catch(() => {}), 600));
+  ["blur", "focus", "show", "hide"].forEach((ev) => pillWin.on(ev, recheck));
+  pillWin.on("closed", () => { pillWin = null; pillWide = false; recheck(); });
 }
 function closePill() { if (pillWin) pillWin.close(); }
 function applyClickThrough() {

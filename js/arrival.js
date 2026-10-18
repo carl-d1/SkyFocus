@@ -229,7 +229,7 @@
       var note = root.querySelector("#note");
       note.oninput = function () { updateFlight(rec.id, function (f) { f.note = note.value; }); };
       function startLayover(min, journeyId) {
-        SF.store.update(function (s) { s.layover = { start: Date.now(), min: min, scale: SF.dev ? 60 : 1, journeyId: journeyId || null }; }, true);
+        SF.store.update(function (s) { s.layover = { start: Date.now(), min: min, scale: SF.speed(), journeyId: journeyId || null }; }, true);
         ui.go("layover");
       }
       var lb = root.querySelector("#layover");

@@ -7,6 +7,8 @@
   SF.dev = params.get("dev") === "1";
   SF.forceOffline = params.get("offline") === "1";
   SF.isFile = window.location.protocol === "file:";
+  // Time scale for new flights and layovers: 60x in dev mode or with the hidden test switch in Settings.
+  SF.speed = function () { return SF.dev || (SF.store && SF.store.state.settings.devSpeed) ? 60 : 1; };
 
   // Seat-map class names are SkyFocus originals.
   var DEFAULT_TAGS = [
@@ -33,6 +35,8 @@
         reducedMotion: false,
         scenes: true,
         windowView: false,
+        devSpeed: false,
+        notify: { landing: true, layover: true, legs: true },
         sounds: true,
         strictness: "warn",
         strictMinutes: 3,
@@ -65,6 +69,7 @@
     out.profile = Object.assign(defaults().profile, data.profile || {});
     out.settings = Object.assign(defaults().settings, data.settings || {});
     out.settings.journey = Object.assign(defaults().settings.journey, (data.settings && data.settings.journey) || {});
+    out.settings.notify = Object.assign(defaults().settings.notify, (data.settings && data.settings.notify) || {});
     out.ui = Object.assign(defaults().ui, data.ui || {});
     if (!Array.isArray(out.tags) || !out.tags.length) out.tags = defaults().tags;
     if (!Array.isArray(out.flights)) out.flights = [];
