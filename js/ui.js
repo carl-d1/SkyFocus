@@ -106,6 +106,7 @@
     { route: "book", label: "Book", icon: "takeoff", key: "" },
     { route: "logbook", label: "Logbook", icon: "logbook", key: "L" },
     { route: "passport", label: "Passport", icon: "passport", key: "" },
+    { route: "stats", label: "Stats", icon: "stats", key: "S" },
     { route: "settings", label: "Settings", icon: "gear", key: "" }
   ];
   ui.NAV = NAV;
@@ -483,7 +484,7 @@
     if (k === "?") { e.preventDefault(); ui.showShortcuts(); }
     else if (k === "l" || k === "L") { ui.go("logbook"); }
     else if (k === "s" || k === "S") {
-      if (SF.views.stats) ui.go("stats"); else ui.toast("Stats not installed yet.", "stats");
+      ui.go("stats");
     }
   });
 

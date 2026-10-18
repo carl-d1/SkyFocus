@@ -12,6 +12,10 @@
       js: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
       ready: function () { return !!window.L; }
     },
+    chart: {
+      js: "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js",
+      ready: function () { return !!window.Chart; }
+    },
     three: {
       js: "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js",
       ready: function () { return !!window.THREE; }

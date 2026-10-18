@@ -115,9 +115,11 @@ Done:
 - Holds scale with the flight: one per full hour of block time, at least one.
 - Window view (W in flight): a cabin wall with three windows onto one sky, lit by the real sun at the aircraft's position, with stars, a moon and town lights at night, cumulus and stratus layers and cirrus that move with parallax, the wingtip with its navigation light, and a horizon that tilts with pitch and moves with bank in holds. Seats A to C look left, D to F look right.
 - Web Audio, all synthesised: engine hum that follows the flight phase and the takeoff and landing scenes, rain, white noise, an ambient pad, the announcement chime, a takeoff swoosh and a touchdown thump. Per-layer levels, master and mute in the in-flight sound panel and in Settings (N mutes).
+- Stats (S): membership card and tier progress, totals, last 14 days, focus by tag, time of day (Chart.js 4.4.1, with built-in bars offline), a 12 month heatmap, every route flown on a map, passport progress by continent and the achievements grid.
+- 26 achievements with progress, and five frequent-flyer tiers by focus miles (Contrail, Stratus 2,500, Cirrus 10,000, Jetstream 30,000, Aurora 75,000), each with its own paper membership card. New unlocks and tier changes turn over as cards with a sweep of light after landing.
 
 Next:
-- Stats, achievements and tiers (the achievement and tier cards get the 3D flip with a light sweep)
+- Final end-to-end test at ?dev=1 over start.bat and file://, including a 3-leg journey with a hold in leg 2
 - Stats dashboard, achievements and frequent-flyer tiers
 
 ## Credits
@@ -125,5 +127,5 @@ Next:
 - Land outlines: [Natural Earth](https://www.naturalearthdata.com/) (public domain) via the `world-atlas` package.
 - Map tiles: Esri World Dark Gray, World Light Gray, World Imagery and reference layers (attribution shown on the map).
 - Globe imagery: NASA Blue Marble and Black Marble, as packaged in the `three-globe` examples.
-- Libraries, loaded on demand from CDNs at pinned versions: Leaflet 1.9.4, three.js r149.
+- Libraries, loaded on demand from CDNs at pinned versions: Leaflet 1.9.4, three.js r149, Chart.js 4.4.1.
 - All artwork, icons, stamps and copy in this project are original.

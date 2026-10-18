@@ -396,3 +396,83 @@ body.airplane .wv-label { left: var(--gutter); }
 .mix-rule { height: 1px; background: var(--glass-rule); margin: var(--s-1) 0; }
 .mix-mute { justify-self: start; }
 #setMix { margin: var(--s-2) 0 var(--s-3); max-width: 480px; }
+
+/* =========================================================
+   STATS
+   ========================================================= */
+.stats { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--s-5); padding-bottom: var(--s-6); }
+.st-card { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-5); min-width: 0; }
+.st-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3); padding-bottom: var(--s-2); border-bottom: 1px solid var(--glass-rule); }
+.st-member { grid-column: span 5; }
+.st-kpis { grid-column: span 7; }
+.st-days { grid-column: span 7; }
+.st-tags { grid-column: span 5; }
+.st-heat { grid-column: span 12; }
+.st-routes { grid-column: span 7; }
+.st-hours { grid-column: span 5; }
+.st-passport { grid-column: span 5; }
+.st-ach { grid-column: span 7; }
+@media (max-width: 1100px) { .stats > .st-card { grid-column: span 12; } }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4); flex: 1; align-content: center; }
+.kpi { display: grid; gap: var(--s-1); padding: var(--s-3); border-radius: 10px; background: var(--glass-well); }
+.kpi small { color: var(--glass-muted); font-size: 12px; }
+.chart-box { position: relative; height: 220px; flex: 1; min-height: 200px; }
+.chart-box canvas { position: absolute; inset: 0; }
+.svg-chart { width: 100%; height: 100%; }
+.svg-chart text { font-family: var(--font-mono); font-size: 10px; fill: var(--glass-muted); }
+.tag-chart { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: var(--s-5); align-items: center; flex: 1; }
+.chart-box.donut { height: 180px; min-height: 180px; }
+.svg-donut { width: 100%; height: 100%; }
+.tag-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.tag-legend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: var(--s-2); align-items: center; font-size: 13px; }
+.tag-legend i { width: 10px; height: 10px; border-radius: 3px; }
+
+.heatmap { width: 100%; height: auto; max-height: 230px; }
+.heatmap text { font-family: var(--font-mono); font-size: 9px; fill: var(--glass-muted); }
+.hm { fill: var(--glass-well); }
+.hm.l1 { fill: rgba(255, 196, 0, .22); }
+.hm.l2 { fill: rgba(255, 196, 0, .45); }
+.hm.l3 { fill: rgba(255, 196, 0, .7); }
+.hm.l4 { fill: var(--signal); }
+.hm.today { stroke: var(--glass-text); stroke-width: 1.5; }
+.hm-key { display: flex; align-items: center; gap: var(--s-1); font-family: var(--font-mono); font-size: 10px; color: var(--glass-muted); }
+.hm-key i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; background: var(--glass-well); }
+.hm-key i.l1 { background: rgba(255, 196, 0, .22); }
+.hm-key i.l2 { background: rgba(255, 196, 0, .45); }
+.hm-key i.l3 { background: rgba(255, 196, 0, .7); }
+.hm-key i.l4 { background: var(--signal); }
+.hm-key span { margin: 0 var(--s-1); }
+
+.routes-map { position: relative; flex: 1; min-height: 300px; border-radius: 10px; overflow: hidden; }
+
+.cont-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-2); }
+.cont-list li { display: flex; justify-content: space-between; align-items: center; padding: var(--s-2) var(--s-3); border-radius: 8px; background: var(--glass-well); color: var(--glass-muted); font-size: 13px; }
+.cont-list li.on { color: var(--glass-text); box-shadow: inset 3px 0 0 var(--signal); }
+.mini-stamps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2); }
+.mini-stamps figure { margin: 0; display: grid; place-items: center; }
+.mini-stamps .stamp { width: 76px; }
+
+.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); max-height: 440px; overflow: auto; scrollbar-width: thin; padding-right: var(--s-1); }
+.ach-tile { display: grid; grid-template-columns: 36px minmax(0, 1fr); grid-template-rows: auto 4px; gap: var(--s-1) var(--s-3); align-items: center; padding: var(--s-2) var(--s-3); border: 0; border-radius: 10px; background: var(--glass-well); color: var(--glass-muted); text-align: left; font: inherit; cursor: default; }
+.ach-tile.on { color: var(--glass-text); cursor: pointer; }
+.ach-tile.on:hover { background: rgba(255, 196, 0, .08); }
+.ach-ico { grid-row: span 2; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; opacity: .55; }
+.ach-tile.on .ach-ico { background: var(--signal); color: var(--signal-ink); box-shadow: none; opacity: 1; }
+.ach-ico .icon { width: 18px; height: 18px; }
+.ach-txt { display: grid; min-width: 0; }
+.ach-txt b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ach-txt small { font-family: var(--font-mono); font-size: 11px; color: var(--glass-muted); }
+.ach-bar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.ach-bar i { display: block; height: 100%; background: var(--signal); }
+
+.tier-prog { display: grid; gap: var(--s-2); }
+.tp-bar { height: 6px; border-radius: 3px; background: var(--glass-well); overflow: hidden; }
+.tp-bar i { display: block; height: 100%; background: var(--signal); }
+.tier-ladder { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-1); }
+.tier-ladder li { display: grid; gap: 2px; padding-top: var(--s-2); border-top: 3px solid var(--glass-well); font-size: 12px; color: var(--glass-muted); }
+.tier-ladder li.done { border-top-color: rgba(255, 196, 0, .5); }
+.tier-ladder li.now { border-top-color: var(--signal); color: var(--glass-text); }
+.tier-ladder small { font-family: var(--font-mono); font-size: 10px; }
+.mcard-btn { display: block; width: 100%; max-width: 420px; padding: 0; border: 0; background: none; cursor: pointer; perspective: 1200px; align-self: center; }
+.mcard-btn .mcard { transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); }

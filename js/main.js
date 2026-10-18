@@ -98,7 +98,8 @@
         s.layover = { start: now - 90000, min: 5, scale: 1, journeyId: s.journey.id };
       }, true);
     }
-    var target = { flight: "flight", journey: "book", jlayover: "layover", book: "book", logbook: "logbook", passport: "passport", settings: "settings", layover: "layover",
+    if (kind === "stats") seedYear(now);
+    var target = { stats: "stats", flight: "flight", journey: "book", jlayover: "layover", book: "book", logbook: "logbook", passport: "passport", settings: "settings", layover: "layover",
       arrival: "arrival/" + SF.store.state.flights.filter(function (f) { return f.status === "landed"; }).slice(-1)[0].id }[kind] || "book";
     if (kind === "layover") SF.store.update(function (s) { s.layover = { start: now - 4 * 60000, min: 15, scale: 1 }; }, true);
     location.hash = "#/" + target;
@@ -106,6 +107,41 @@
 
   // dev: &hour=H sets solar time at the aircraft for the window view
   if (SF.dev) { var hr = new URLSearchParams(location.search).get("hour"); if (hr != null) SF.devSunHour = +hr; }
+
+  // Dev: a year of varied flying for the stats screen.
+  function seedYear(now) {
+    if (SF.store.state.flights.length > 40) return;
+    var r = SF.rng(42), D = 86400000, recs = [];
+    SF.store.update(function (s) {
+      var at = s.profile.home || "MEL", tags = s.tags.map(function (t) { return t.id; }), mins = [25, 25, 45, 60, 90, 120, 240];
+      for (var day = 330; day >= 1; day--) {
+        if (r() > (day < 40 ? .8 : .45)) continue;
+        var count = 1 + (r() < .35 ? 1 : 0) + (r() < .1 ? 1 : 0);
+        for (var k = 0; k < count; k++) {
+          var m = mins[Math.floor(r() * mins.length)], pool = SF.routeCandidates(at, m, { max: 5 });
+          if (!pool.length) continue;
+          var to = pool[Math.floor(r() * pool.length)].a.iata, hour = [6, 9, 10, 14, 16, 20, 22][Math.floor(r() * 7)];
+          var af = SF.flight.create({ from: at, to: to, minutes: m, tagId: tags[Math.floor(r() * Math.min(tags.length, 5))], seat: "4A" });
+          af.startAt = startOf(now - day * D) + hour * 3600000 + k * 3 * 3600000;
+          af.holds = r() < .3 ? 1 : 0; af.turbulence = r() < .2 ? 1 : 0; af.airplaneMode = r() < .3;
+          var ok = r() > .08, frac = ok ? 1 : .5;
+          var rec = SF.flight.toRecord(af, ok ? "landed" : "diverted", { flownKm: af.distanceKm * frac, elapsedMs: m * 60000 * frac, routeFrac: frac },
+            { outcome: ok ? (r() < .6 ? "yes" : "partly") : null, endAt: af.startAt + m * 60000 });
+          if (ok && !s.stamps.some(function (x) { return x.iata === to; })) {
+            var a = SF.airport(to);
+            s.stamps.push({ iata: a.iata, city: a.city, country: a.country, cc: a.cc, continent: a.continent, date: rec.endAt, flightId: rec.id });
+            rec.newStamp = true;
+          }
+          recs.push(rec);
+          if (ok) at = to;
+        }
+      }
+      s.flights = s.flights.concat(recs).sort(function (x, y) { return x.startAt - y.startAt; });
+      s.currentAirport = at;
+    }, true);
+    SF.achievements.evaluate(null, true);
+  }
+  function startOf(ts) { var d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); }
 
   function boot() {
     ui.applyTheme();
@@ -119,6 +155,11 @@
     else if (SF.dev && new URLSearchParams(location.search).get("demo")) { seedDemo(new URLSearchParams(location.search).get("demo")); ui.render(); }
     else { ui.render(); resumePrompt(); }
     if (SF.dev) console.info("SkyFocus dev mode: flights run 60× faster.");
+    // dev: &unlock=tier or &unlock=ach shows a celebration card
+    var un = SF.dev && new URLSearchParams(location.search).get("unlock");
+    if (un) setTimeout(function () {
+      SF.achievements.preview(un === "tier" ? { kind: "tier", tier: SF.achievements.TIERS[3] } : { kind: "ach", def: SF.achievements.DEFS[4] });
+    }, 1200);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

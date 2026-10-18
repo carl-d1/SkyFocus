@@ -208,6 +208,9 @@
         "</aside></div>";
 
       inkSplash(root.querySelector(".stamp-wrap.fresh"));
+      // new achievements and tiers, once the stamp has landed
+      var celebrateIn = (SF.scenes && SF.scenes.playing ? 900 : 200) + (rec.newStamp ? 1300 : 400);
+      this._celebrate = setTimeout(function () { if (root.isConnected && SF.achievements) SF.achievements.celebrate(); }, celebrateIn);
       var chart = SF.FallbackMap(root.querySelector("#arrChart"), { camera: "route", showPlane: false, night: false, padPx: 24, label: "Route chart" });
       chart.setRoute(SF.airport(rec.from), SF.airport(rec.to));
       chart.setProgress(rec.track ? rec.track.routeFrac : rec.flownKm / Math.max(1, rec.distanceKm));
@@ -221,7 +224,7 @@
         updateFlight(rec.id, function (f) { f.outcome = o; });
         rec.outcome = o;
         ui.$$("#outcome .tickbox", root).forEach(function (c) { var on = c === b; c.classList.toggle("on", on); c.setAttribute("aria-checked", on); });
-        if (SF.achievements && SF.achievements.evaluate) SF.achievements.evaluate(rec);
+        if (SF.achievements && SF.achievements.evaluate) { SF.achievements.evaluate(rec); SF.achievements.celebrate(); }
       };
       var note = root.querySelector("#note");
       note.oninput = function () { updateFlight(rec.id, function (f) { f.note = note.value; }); };
@@ -248,7 +251,7 @@
       if (nf) nf.onclick = function () { ui.go("book"); };
       ui.updateGoal();
     },
-    unmount: function () { if (this._chart) this._chart.destroy(); this._chart = null; }
+    unmount: function () { clearTimeout(this._celebrate); if (this._chart) this._chart.destroy(); this._chart = null; }
   };
 
   /* ---------- split-flap text ---------- */

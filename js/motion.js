@@ -80,6 +80,7 @@
         r.setProperty("--spring", linearEasing(210, 15, 1, 48));        // lively, small overshoot
         r.setProperty("--spring-soft", linearEasing(140, 22, 1, 40));   // settles without bounce
         r.setProperty("--spring-snap", linearEasing(520, 30, 1, 40));   // quick press and release
+        r.setProperty("--spring-flip", linearEasing(120, 13, 1, 56));   // a card turning over
       } catch (e) { /* keep the fallbacks */ }
     },
 
