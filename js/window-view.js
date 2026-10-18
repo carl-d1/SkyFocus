@@ -237,10 +237,10 @@
         });
         g.globalAlpha = 1;
         g.restore();
-        // inside a cloud
+        // inside a cloud the view greys out; the wing, a few metres away, stays faintly visible
         if (whiteout > 0) { g.fillStyle = SF.sky.css(P.cloud, (whiteout * .8).toFixed(2)); g.fillRect(0, 0, W, H); }
-        // the wing, fixed to the airframe
-        drawWing(cx, H, k, hy);
+        drawWing(cx, k, now / 1000, alt, st.heading);
+        if (whiteout > 0) { g.fillStyle = SF.sky.css(P.cloud, (whiteout * .35).toFixed(2)); g.fillRect(0, 0, W, H); }
         if (now % 1000 < 40 || !read.textContent || read.textContent === "--") read.textContent = Math.round(alt).toLocaleString() + " FT · SUN " + Math.round(sun.el) + "° · " + sunTime(st.pos);
       }
       function holdRate(s) {
@@ -248,27 +248,89 @@
         var ph = s.hold.phase % .5;
         return ph > .1 && ph < .4 ? 0 : 360 / (4 * 60) * 2.4 * ((SF.store.state.activeFlight && SF.store.state.activeFlight.timeScale) || 1);
       }
-      function drawWing(cx, H2, k, hy) {
-        var bodyF = P.body, base = [196, 199, 204].map(function (v) { return Math.round(v * bodyF); });
-        var c = centre || { x: cx, w: W * .2, y: H2 * .2, h: H2 * .6 };
-        var root = { x: c.x + dir * c.w * .35, y: c.y + c.h * 1.08 }, tipX = c.x - dir * c.w * .4, tipY = c.y + c.h * .66;
-        g.fillStyle = SF.sky.css(base);
-        g.beginPath();
-        g.moveTo(root.x, root.y);
-        g.lineTo(root.x - dir * c.w * .75, root.y);
-        g.lineTo(tipX, tipY + 10);
-        g.lineTo(tipX + dir * 26, tipY);
-        g.closePath(); g.fill();
-        var sh = g.createLinearGradient(0, tipY, 0, root.y);
-        sh.addColorStop(0, "rgba(255,255,255,.08)"); sh.addColorStop(1, "rgba(0,0,0,.35)");
-        g.fillStyle = sh; g.fill();
-        g.fillStyle = "#ffc400";   // winglet
-        g.beginPath(); g.moveTo(tipX, tipY + 10); g.lineTo(tipX + dir * 26, tipY); g.lineTo(tipX + dir * 18, tipY - 44); g.lineTo(tipX + dir * 6, tipY - 40); g.closePath(); g.fill();
-        if (P.lights > .2) {   // navigation light: red on the left wing, green on the right
-          var col = dir > 0 ? "255,59,48" : "56,255,122", lg = g.createRadialGradient(tipX + dir * 6, tipY + 4, 0, tipX + dir * 6, tipY + 4, 22);
-          lg.addColorStop(0, "rgba(" + col + ",.9)"); lg.addColorStop(1, "rgba(" + col + ",0)");
-          g.fillStyle = lg; g.fillRect(tipX + dir * 6 - 22, tipY - 18, 44, 44);
+      /* ---------- the wing: an original swept wing with a winglet, in the same perspective as the sky.
+         Aircraft frame in metres: x forward, y outward on the window side, z up; the eye is at 0, 0, 0. */
+      var NSEC = q === "low" ? 5 : q === "balanced" ? 8 : 12, WING = [];
+      for (i = 0; i <= NSEC; i++) {
+        var u = i / NSEC;
+        WING.push({ u: u, y: 2.1 + 15.4 * u, le: 6.4 - 15.4 * u * Math.tan(28 * D2R), c: 6.4 - 4.7 * u, z: -2.4 + 15.4 * u * Math.tan(5.5 * D2R), t: .55 - .41 * u });
+      }
+      var PAINT = [204, 208, 214], SIGNAL = [255, 196, 0];
+      function vnorm(v) { var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+      function vsub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+      function vcross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+      function vdot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+      // a light at true azimuth and elevation, in the aircraft frame
+      function lightVec(az, el, heading) {
+        var rel = (az - heading) * D2R, e = el * D2R;
+        return vnorm([Math.cos(e) * Math.cos(rel), -dir * Math.cos(e) * Math.sin(rel), Math.sin(e)]);
+      }
+      // colour of a surface: sky ambient, direct sun, and a specular glint toward the eye
+      function lit(base, n, at, L) {
+        var amb = .2 + .38 * P.hemiI, sunK = sun.el > -2 ? clamp((sun.el + 2) / 6, 0, 1) * P.sunI * .38 : 0;
+        var diff = Math.max(0, vdot(n, L.sun)) * sunK;
+        // glossy paint also picks up the colour of the sky above it
+        var c = [0, 1, 2].map(function (i) { return Math.min(242, base[i] * (P.sky[i] / 255 * amb + P.sun[i] / 255 * diff) + P.horizon[i] * .12 * Math.max(0, n[2])); });
+        var v = vnorm([-at[0], -at[1], -at[2]]), hv = vnorm([L.sun[0] + v[0], L.sun[1] + v[1], L.sun[2] + v[2]]);
+        var spec = Math.pow(Math.max(0, vdot(n, hv)), 70) * sunK * 1.6;
+        return { c: c, spec: spec };
+      }
+      function rgb(c, a) { return "rgba(" + Math.min(255, c[0] | 0) + "," + Math.min(255, c[1] | 0) + "," + Math.min(255, c[2] | 0) + "," + (a == null ? 1 : a) + ")"; }
+
+      function drawWing(cx, k, ts, alt, heading) {
+        var mid = H * .5;
+        function sp(p) { var dh = Math.sqrt(p[0] * p[0] + p[1] * p[1]); return [cx + dir * Math.atan2(p[0], p[1]) * R2D * k, mid - Math.atan2(p[2], dh) * R2D * k]; }
+        // in flight the wing bends up under load; a bump makes it flex
+        var bend = alt > 200 ? .55 : 0, flex = shake * .45 * Math.sin(ts * 13);
+        function pt(s, f, hz) { return [s.le - f * s.c, s.y, s.z + hz * s.t + (bend + flex) * s.u * s.u]; }
+        var L = { sun: lightVec(sun.az, sun.el, heading) };
+        function poly(pts, fill) { g.beginPath(); pts.forEach(function (p, n2) { var q2 = sp(p); if (n2) g.lineTo(q2[0], q2[1]); else g.moveTo(q2[0], q2[1]); }); g.closePath(); g.fillStyle = fill; g.fill(); }
+        function line(a, b, style, w) { var p = sp(a), q2 = sp(b); g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q2[0], q2[1]); g.strokeStyle = style; g.lineWidth = w; g.stroke(); }
+        g.save();
+        g.lineJoin = "round";
+        for (var n = WING.length - 2; n >= 0; n--) {
+          var a = WING[n], b = WING[n + 1];
+          // upper skin from the crest of the leading edge back to the trailing edge
+          var p1 = pt(a, .12, .5), p2 = pt(b, .12, .5), p3 = pt(b, 1, .1), p4 = pt(a, 1, .1);
+          var nU = vnorm(vcross(vsub(p2, p1), vsub(p4, p1)));
+          if (nU[2] < 0) nU = [-nU[0], -nU[1], -nU[2]];
+          var ctr = [(p1[0] + p3[0]) / 2, (p1[1] + p3[1]) / 2, (p1[2] + p3[2]) / 2], tone = n % 2 ? .97 : 1.01;
+          var s1 = lit(PAINT.map(function (v) { return v * tone; }), nU, ctr, L);
+          // darker toward the trailing edge, where the skin curves down
+          var ga = sp(p1), gb = sp(p4), skin = g.createLinearGradient(ga[0], ga[1], gb[0], gb[1]);
+          skin.addColorStop(0, rgb(s1.c)); skin.addColorStop(1, rgb([s1.c[0] * .8, s1.c[1] * .8, s1.c[2] * .82]));
+          poly([p1, p2, p3, p4], skin);
+          if (s1.spec > .02) poly([p1, p2, p3, p4], "rgba(255,250,240," + Math.min(.85, s1.spec).toFixed(3) + ")");
+          // leading edge: the curved nose catches the light as a bright band
+          var e1 = pt(a, 0, 0), e2 = pt(b, 0, 0), nL = vnorm([1, 0, .9]), s2 = lit(PAINT, nL, e1, L);
+          var hi = [s2.c[0] * 1.18 + 26, s2.c[1] * 1.18 + 26, s2.c[2] * 1.18 + 28];
+          poly([e1, e2, p2, p1], rgb(hi));
+          if (s2.spec > .02) poly([e1, e2, p2, p1], "rgba(255,255,255," + Math.min(.9, s2.spec * 1.4).toFixed(3) + ")");
+          // panel lines: spoilers and flaps inboard, the aileron outboard, a seam at each rib station
+          var shade = "rgba(0,0,0,.28)", w1 = Math.max(.6, 1.6 - a.u);
+          line(pt(a, .55, .32), pt(b, .55, .32), shade, w1 * .8);
+          line(pt(a, .74, .22), pt(b, .74, .22), shade, w1);
+          if (n % 2 === 0 && n > 0) line(pt(a, .12, .5), pt(a, 1, .1), "rgba(0,0,0,.16)", w1 * .7);
+          // trailing edge shadow line
+          line(p3, p4, "rgba(0,0,0,.45)", w1 * 1.2);
         }
+        // tip cap and winglet, canted out and swept back, in the signal colour
+        var tip = WING[WING.length - 1];
+        var b1 = pt(tip, .1, .5), b2 = pt(tip, 1, .1);
+        var t1 = [b1[0] - .9, b1[1] + .4, b1[2] + 2.1], t2 = [t1[0] - .6, t1[1], t1[2]];
+        var nW = vnorm([0, -1, .22]), sw = lit(SIGNAL, nW, b1, L);
+        var wb = sp(b1), wt = sp(t1), wgr = g.createLinearGradient(wb[0], wb[1], wt[0], wt[1]);
+        wgr.addColorStop(0, rgb(sw.c)); wgr.addColorStop(1, rgb([sw.c[0] * .72, sw.c[1] * .66, sw.c[2] * .6]));
+        poly([b1, b2, t2, t1], wgr);
+        if (sw.spec > .02) poly([b1, b2, t2, t1], "rgba(255,255,255," + Math.min(.8, sw.spec).toFixed(3) + ")");
+        line(b1, t1, "rgba(255,255,255,.35)", 1.2);
+        // navigation light: red on the left wing, green on the right
+        var nav = sp(pt(tip, .02, .3)), col = dir > 0 ? "255,59,48" : "56,255,122", lr = 26;
+        var lg = g.createRadialGradient(nav[0], nav[1], 0, nav[0], nav[1], lr);
+        lg.addColorStop(0, "rgba(" + col + "," + (.35 + .55 * P.lights).toFixed(2) + ")"); lg.addColorStop(1, "rgba(" + col + ",0)");
+        g.fillStyle = lg; g.fillRect(nav[0] - lr, nav[1] - lr, lr * 2, lr * 2);
+        g.fillStyle = "rgb(" + col + ")"; g.beginPath(); g.arc(nav[0], nav[1], 2, 0, Math.PI * 2); g.fill();
+        g.restore();
       }
       function sunTime(pos) {
         var d = SF.devSunHour != null ? new Date(SF.devSunHour * 3600000) : new Date(Date.now() + pos.lon / 15 * 3600000);
