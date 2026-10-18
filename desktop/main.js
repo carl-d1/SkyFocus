@@ -344,6 +344,21 @@ ipcMain.handle("data:backup", (e, json) => {
   fs.writeFileSync(file, json);
   return file;
 });
+// app data file: written atomically (temp file, then rename) the moment the app saves
+const DATA_FILE = () => path.join(app.getPath("userData"), "skyfocus-data.json");
+ipcMain.on("data:load", (e) => {
+  if (!fromMain(e)) { e.returnValue = null; return; }
+  try { e.returnValue = fs.readFileSync(DATA_FILE(), "utf8") || null; } catch (err) { e.returnValue = null; }
+});
+ipcMain.on("data:save", (e, text) => {
+  if (!fromMain(e) || typeof text !== "string" || text.length > 50e6) return;
+  try {
+    if (!text) { fs.rmSync(DATA_FILE(), { force: true }); return; }
+    const tmp = DATA_FILE() + ".tmp";
+    fs.writeFileSync(tmp, text);
+    fs.renameSync(tmp, DATA_FILE());
+  } catch (err) { /* disk full or read-only: localStorage still has a copy */ }
+});
 ipcMain.handle("app:firstRun", (e) => fromMain(e) ? !state.firstRunDone : false);
 ipcMain.on("app:firstRunDone", (e) => { if (fromMain(e)) { state.firstRunDone = true; saveState(); } });
 

@@ -31,18 +31,28 @@
     delete memoryFallback[key];
   }
 
+  // The desktop app keeps its data in a file written straight to disk by the main process, so a
+  // crash or a forced close never loses a flight (localStorage reaches the disk only lazily).
+  var file = window.skyfocusDesktop && window.skyfocusDesktop.storage;
+
   SF.storage = {
     KEY: KEY,
-    available: available,
+    available: available || !!file,
     load: function () {
-      var raw = read(KEY);
+      var raw = null;
+      if (file) { try { raw = file.load(); } catch (e) { raw = null; } }
+      if (!raw) raw = read(KEY);
       if (!raw) return null;
       try { return JSON.parse(raw); } catch (e) { return null; }
     },
     save: function (obj) {
-      try { return write(KEY, JSON.stringify(obj)); } catch (e) { return false; }
+      try {
+        var text = JSON.stringify(obj);
+        if (file) file.save(text);
+        return write(KEY, text);
+      } catch (e) { return false; }
     },
-    clear: function () { remove(KEY); },
+    clear: function () { remove(KEY); if (file) file.save(""); },
     readRaw: read,
     writeRaw: write
   };

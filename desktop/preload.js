@@ -29,5 +29,10 @@ contextBridge.exposeInMainWorld("skyfocusDesktop", {
   openDataFolder: () => ipcRenderer.invoke("data:openFolder"),
   backupNow: (json) => ipcRenderer.invoke("data:backup", json),
   isFirstRun: () => ipcRenderer.invoke("app:firstRun"),
-  firstRunDone: () => ipcRenderer.send("app:firstRunDone")
+  firstRunDone: () => ipcRenderer.send("app:firstRunDone"),
+  // app data, kept in a file the main process writes at once
+  storage: {
+    load: () => ipcRenderer.sendSync("data:load"),
+    save: (text) => ipcRenderer.send("data:save", String(text))
+  }
 });
