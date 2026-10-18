@@ -104,6 +104,34 @@
     SF.store.update(function (s) { s.flights.forEach(function (f) { if (f.id === id) fn(f); }); });
   }
 
+  /* ---------- journey cards ---------- */
+  function itineraryList(legs, doneUpTo, nowIdx) {
+    return '<ol class="itinerary">' + legs.map(function (l, i) {
+      var b = SF.airport(l.to), st = i < doneUpTo ? "done" : i === nowIdx ? "now" : "";
+      return '<li class="' + st + '"><span class="readout it-n">' + String(i + 1).padStart(2, "0") + '</span><b class="mono">' + l.from + " → " + l.to + '</b><span class="it-city">' + SF.esc(b.city) + '</span><small class="mono">' + SF.fmt.dist(l.km) + '</small><small class="it-break mono">' +
+        (i < doneUpTo ? "LANDED" : i === nowIdx ? "NEXT" : "") + "</small></li>";
+    }).join("") + "</ol>";
+  }
+  function nextCard(rec, here, breaks) {
+    var j = SF.journey.active();
+    if (j && rec.journeyId === j.id) {
+      var n = rec.legIndex + 1, min = SF.journey.breakAfter(n, j);
+      return '<div class="glass journey-card"><h3>' + SF.icon("route") + "Journey · leg " + n + (j.untilStop ? "" : " of " + j.legs.length) + " complete</h3>" +
+        itineraryList(j.legs.slice(0, Math.min(j.legs.length, n + 3)), n, n) +
+        '<button class="btn btn-signal block" id="journeyLayover" data-min="' + min + '">' + SF.icon("coffee") + "<span>Layover · " + min + " min" + (n % j.longEvery === 0 ? " · long" : "") + "</span></button>" +
+        '<button class="btn btn-text" id="journeyEnd">End journey here</button></div>';
+    }
+    var lj = SF.store.state.lastJourney;
+    if (lj && rec.journeyId === lj.id) {
+      return '<div class="glass journey-card"><h3>' + SF.icon("route") + (lj.ended === "complete" ? "Journey complete" : "Journey ended") + "</h3>" +
+        '<dl class="dc-facts mono"><div><dt>Legs</dt><dd>' + lj.landed + (lj.planned ? " of " + lj.planned : "") + "</dd></div><div><dt>Focus</dt><dd>" + SF.fmt.dur(lj.minutes) + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(lj.km) + "</dd></div></dl>" +
+        '<button class="btn btn-signal block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>";
+    }
+    return '<div class="glass next-card"><h3>' + SF.icon("coffee") + "Layover</h3><p class=\"muted\">Break before the next departure.</p>" +
+      '<div class="chips" id="layover">' + breaks.map(function (b) { return '<button type="button" class="chip mono" data-b="' + b + '">' + b + " MIN</button>"; }).join("") + "</div>" +
+      '<button class="btn btn-signal block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>";
+  }
+
   /* ---------- arrival ---------- */
   var OUTCOMES = [["yes", "Complete"], ["partly", "Partial"], ["no", "Not complete"]];
 
@@ -150,9 +178,7 @@
         (landed && stamp ? '<div class="stamp-wrap' + (rec.newStamp ? " fresh" : "") + '">' + SF.stampSVG(stamp, 240, { onDark: true }) + "</div>"
           : '<div class="no-stamp">DIVERTED FLIGHTS ARE NOT STAMPED</div>') +
         "</div>" +
-        '<div class="glass next-card"><h3>' + SF.icon("coffee") + "Layover</h3><p class=\"muted\">Break before the next departure.</p>" +
-        '<div class="chips" id="layover">' + breaks.map(function (b) { return '<button type="button" class="chip mono" data-b="' + b + '">' + b + " MIN</button>"; }).join("") + "</div>" +
-        '<button class="btn btn-signal block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>" +
+        nextCard(rec, here, breaks) +
         "</aside></div>";
 
       var chart = SF.FallbackMap(root.querySelector("#arrChart"), { camera: "route", showPlane: false, night: false, padPx: 24, label: "Route chart" });
@@ -172,13 +198,27 @@
       };
       var note = root.querySelector("#note");
       note.oninput = function () { updateFlight(rec.id, function (f) { f.note = note.value; }); };
-      root.querySelector("#layover").onclick = function (e) {
-        var b = e.target.closest("[data-b]"); if (!b) return;
-        var min = +b.getAttribute("data-b");
-        SF.store.update(function (s) { s.layover = { start: Date.now(), min: min, scale: SF.dev ? 60 : 1 }; }, true);
+      function startLayover(min, journeyId) {
+        SF.store.update(function (s) { s.layover = { start: Date.now(), min: min, scale: SF.dev ? 60 : 1, journeyId: journeyId || null }; }, true);
         ui.go("layover");
+      }
+      var lb = root.querySelector("#layover");
+      if (lb) lb.onclick = function (e) {
+        var b = e.target.closest("[data-b]"); if (!b) return;
+        startLayover(+b.getAttribute("data-b"));
       };
-      root.querySelector("#nextFlight").onclick = function () { ui.go("book"); };
+      var jl = root.querySelector("#journeyLayover");
+      if (jl) jl.onclick = function () { startLayover(+jl.getAttribute("data-min"), rec.journeyId); };
+      var je = root.querySelector("#journeyEnd");
+      if (je) je.onclick = function () {
+        ui.confirm("End journey", "Stop here. Completed legs stay in the logbook.", "End journey", true).then(function (ok) {
+          if (!ok) return;
+          SF.journey.end();
+          ui.go("arrival/" + rec.id);
+        });
+      };
+      var nf = root.querySelector("#nextFlight");
+      if (nf) nf.onclick = function () { ui.go("book"); };
       ui.updateGoal();
     },
     unmount: function () { if (this._chart) this._chart.destroy(); this._chart = null; }
@@ -203,23 +243,37 @@
       var here = SF.airport(SF.store.state.currentAirport);
       var total = lo.min * 60000, iv = null, finished = false;
       var def = SF.store.state.settings.defaultDuration;
-      var sugg = SF.routeCandidates(here.iata, def, { max: 6 });
+      var j = SF.journey.active();
+      var inJourney = !!(j && lo.journeyId === j.id);
+      var sugg = inJourney ? [] : SF.routeCandidates(here.iata, def, { max: 6 });
+      var autoStart = inJourney && SF.store.state.settings.journey.autoStart;
 
       root.innerHTML =
         '<div class="layover"><section class="glass layover-card">' +
         '<p class="label">' + SF.esc(here.city) + " · Local " + SF.fmt.localTime(here.tz, new Date()) + "</p><h1>Break</h1>" +
         '<div class="lo-ring"><div id="loRing"></div><div class="lo-time" id="loTime">' + SF.fmt.clock(total) + "</div></div>" +
         '<p class="muted" id="loMsg">Leave the screen. Water. Look at something far away.</p>' +
-        '<div class="row-btns"><button class="btn" id="loEnd">End layover</button></div>' +
+        (inJourney
+          ? '<div class="row-btns"><button class="btn btn-signal" id="loBoard">' + SF.icon("takeoff") + "<span>Board leg " + (j.index + 1) + "</span></button>" +
+            '<button class="btn btn-text" id="loEndJourney">End journey</button></div>' +
+            '<p class="small-print">' + (autoStart ? "Next leg boards automatically when the break ends." : "Next leg waits for you.") + "</p>"
+          : '<div class="row-btns"><button class="btn" id="loEnd">End layover</button></div>') +
         "</section>" +
         '<section class="board" aria-label="Departures from ' + here.iata + '">' +
         '<div class="board-head"><span>FLIGHT</span><span>DESTINATION</span><span>BLOCK</span><span>STATUS</span></div>' +
-        sugg.map(function (r, i) {
-          return '<button type="button" class="board-row" data-code="' + r.a.iata + '">' +
-            flaps(SF.flight.flightNo(here.iata, r.a.iata), 5) + flaps(r.a.city, 14) + flaps(SF.fmt.dur(def), 6) +
-            '<span class="status-cell">' + (i === 0 ? "BOARDING" : "SCHEDULED") + "</span></button>";
-        }).join("") + '<div class="board-fill" aria-hidden="true"></div></section></div>';
-      ui.topbar(ui.topbarTitle("Layover · " + here.iata), "");
+        (inJourney
+          ? j.legs.map(function (l, i) {
+              var st = i < j.index ? "LANDED" : i === j.index ? "NEXT" : "SCHEDULED";
+              return '<div class="board-row journey-row' + (i < j.index ? " done" : "") + '">' +
+                flaps(SF.flight.flightNo(l.from, l.to), 5) + flaps(SF.airport(l.to).city, 14) + flaps(j.legMin + "m", 6) +
+                '<span class="status-cell">' + st + "</span></div>";
+            }).slice(Math.max(0, j.index - 2), j.index + 6).join("")
+          : sugg.map(function (r, i) {
+              return '<button type="button" class="board-row" data-code="' + r.a.iata + '">' +
+                flaps(SF.flight.flightNo(here.iata, r.a.iata), 5) + flaps(r.a.city, 14) + flaps(SF.fmt.dur(def), 6) +
+                '<span class="status-cell">' + (i === 0 ? "BOARDING" : "SCHEDULED") + "</span></button>";
+            }).join("")) + '<div class="board-fill" aria-hidden="true"></div></section></div>';
+      ui.topbar(ui.topbarTitle("Layover · " + here.iata), inJourney ? '<span class="leg-tag">JOURNEY · LEG ' + (j.index + 1) + (j.untilStop ? "" : " OF " + j.legs.length) + " NEXT</span>" : "");
       if (!ui.reducedMotion()) ui.$$(".flap", root).forEach(function (f) { f.classList.add("flip"); });
 
       function tick() {
@@ -232,16 +286,36 @@
           finished = true;
           clearInterval(iv);
           root.querySelector("#loMsg").textContent = "Layover complete.";
-          root.querySelector("#loEnd").innerHTML = SF.icon("takeoff") + "<span>Book next flight</span>";
-          root.querySelector("#loEnd").className = "btn btn-signal";
           SF.ui.setTitle("");
           SF.ui.announce("Boarding", "Layover " + here.iata + " complete.", "takeoff");
           SF.store.update(function (s) { s.layover = null; }, true);
+          if (inJourney) { if (autoStart) boardNext(true); }
+          else {
+            root.querySelector("#loEnd").innerHTML = SF.icon("takeoff") + "<span>Book next flight</span>";
+            root.querySelector("#loEnd").className = "btn btn-signal";
+          }
         }
       }
       iv = setInterval(tick, 500);
       tick();
-      root.querySelector("#loEnd").onclick = function () {
+      // Journey: book the next leg and go to the gate (auto-boards when started by the timer).
+      function boardNext(auto) {
+        SF.store.update(function (s) { s.layover = null; }, true);
+        SF.journey.bookLeg(SF.journey.active().index);
+        SF.autoBoard = !!auto;
+        ui.go("board");
+      }
+      if (inJourney) {
+        root.querySelector("#loBoard").onclick = function () { boardNext(false); };
+        root.querySelector("#loEndJourney").onclick = function () {
+          ui.confirm("End journey", "Stop here. Completed legs stay in the logbook.", "End journey", true).then(function (ok) {
+            if (!ok) return;
+            SF.store.update(function (s) { s.layover = null; }, true);
+            SF.journey.end();
+            ui.go("book");
+          });
+        };
+      } else root.querySelector("#loEnd").onclick = function () {
         SF.store.update(function (s) { s.layover = null; }, true);
         ui.go("book");
       };

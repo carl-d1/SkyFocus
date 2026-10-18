@@ -168,10 +168,17 @@
         if (camera === "follow" && Date.now() >= manualUntil) follow(false);
       },
       setCamera: function (c, instant) { camera = c; manualUntil = 0; camUpdate(!instant); },
-      setMarkers: function (list) { drawMarkers(list); if (!route) fitRoute(false); },
+      setMarkers: function (list) {
+        drawMarkers(list);
+        if (route) return;
+        if (list && list.length > 1) {
+          var pd = padding();
+          map.fitBounds(L.latLngBounds(list.map(function (m) { return [m.lat, m.lon]; })), { paddingTopLeft: pd.tl, paddingBottomRight: pd.br, maxZoom: 7, animate: true, duration: .8 });
+        } else fitRoute(false);
+      },
       setRoutes: function (list) {
         routesLayer.clearLayers();
-        list.forEach(function (r) { L.polyline(SF.geo.arcPoints(r.from, r.to, 48).map(ll), { className: "lf-routes", interactive: false }).addTo(routesLayer); });
+        list.forEach(function (r) { L.polyline(SF.geo.arcPoints(r.from, r.to, 48).map(ll), { className: "lf-routes " + (r.cls || ""), interactive: false }).addTo(routesLayer); });
       },
       setTrack: function (pts) { trackLine.setLatLngs((pts || []).map(ll)); },
       resize: function () { map.invalidateSize(); camUpdate(false); },

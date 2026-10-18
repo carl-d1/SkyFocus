@@ -427,7 +427,7 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
    MAP PROVIDERS: Leaflet (classic, satellite), three.js globe, built-in globe
    ========================================================= */
 .leaflet-host, .globe-host { position: absolute; inset: 0; }
-.leaflet-container { background: var(--map-ocean); font-family: var(--font-body); outline: none; }
+.leaflet-container.leaflet-container { background: var(--map-ocean); font-family: var(--font-body); outline: none; }
 .leaflet-bottom.leaflet-left .leaflet-control-attribution { margin-left: calc(var(--rail-w) + var(--gutter)); }
 .leaflet-control-attribution { background: rgba(10, 11, 14, .55) !important; color: rgba(243, 240, 232, .6) !important; font-size: 10px; padding: 2px var(--s-2) !important; border-radius: 6px 6px 0 0; }
 .leaflet-control-attribution a { color: rgba(243, 240, 232, .8) !important; }
@@ -438,6 +438,11 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
 .lf-hold { stroke: var(--map-flown); stroke-width: 1.5; stroke-dasharray: 3 4; fill: none; }
 .lf-track { stroke: var(--map-flown); stroke-width: 2.5; fill: none; }
 .lf-routes { stroke: var(--map-flown); stroke-opacity: .55; stroke-width: 1.2; fill: none; }
+/* itineraries: next leg solid, later legs dashed, flown legs faint */
+.lf-routes.leg-next, .atlas-routes path.leg-next { stroke-opacity: 1; stroke-width: 2.5; stroke-dasharray: none; }
+.lf-routes.leg-later, .atlas-routes path.leg-later { stroke: var(--map-route); stroke-opacity: .9; stroke-dasharray: 5 5; stroke-width: 1.5; }
+.lf-routes.leg-done, .atlas-routes path.leg-done { stroke-opacity: .35; stroke-width: 2; }
+.lf-mark.m-stop i, .atlas-dots circle.m-stop { background: var(--map-label); fill: var(--map-label); }
 .map-satellite .lf-remain { stroke: rgba(255, 255, 255, .85); }
 .lf-plane { background: none; border: 0; }
 .lf-plane svg { transition: transform .25s linear; }

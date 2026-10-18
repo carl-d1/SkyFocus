@@ -91,6 +91,12 @@
           var m = markers[0];
           return fit(m.lon - 25, -m.lat - 15, m.lon + 25, -m.lat + 15, pad);
         }
+        if (route === null && markers.length > 1) {
+          // an itinerary: fit every stop, longitudes kept continuous from the first
+          var ref = markers[0].lon, xs2 = [], ys2 = [];
+          markers.forEach(function (mk) { var lo = mk.lon; while (lo - ref > 180) lo -= 360; while (lo - ref < -180) lo += 360; xs2.push(lo); ys2.push(-mk.lat); });
+          return fit(Math.min.apply(null, xs2), Math.min.apply(null, ys2), Math.max.apply(null, xs2), Math.max.apply(null, ys2), pad);
+        }
         return fit(-170, -75, 190, 60, 0);
       }
       if (camera === "follow" && pos) {

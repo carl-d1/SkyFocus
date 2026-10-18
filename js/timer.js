@@ -107,6 +107,7 @@
         seat: b.seat,
         gate: "ABCDEF".charAt(Math.floor(rnd() * 6)) + (1 + Math.floor(rnd() * 38)),
         task: b.task || "",
+        journeyId: b.journeyId || null, legIndex: b.legIndex == null ? null : b.legIndex, legCount: b.legCount || null,
         bookedAt: Date.now(),
         cruiseAlt: cruiseAltFor(km),
         timeScale: SF.dev ? 60 : 1,
@@ -187,6 +188,7 @@
         airplaneMode: af.airplaneMode,
         timeScale: af.timeScale,
         outcome: null, note: "", newStamp: false,
+        journeyId: af.journeyId || null, legIndex: af.legIndex == null ? null : af.legIndex, legCount: af.legCount || null,
         // The flown track: route progress plus every hold, enough to redraw the real path.
         track: {
           routeFrac: Math.round(st.routeFrac * 10000) / 10000,
@@ -414,6 +416,7 @@
         s.activeFlight = null;
         s.recentRoutes = [rec.from + "-" + rec.to].concat((s.recentRoutes || []).filter(function (r) { return r !== rec.from + "-" + rec.to; })).slice(0, 6);
       }, true);
+      if (SF.journey) SF.journey.afterFlight(rec);
       if (SF.achievements && SF.achievements.evaluate) SF.achievements.evaluate(rec);
     }
   });

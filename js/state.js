@@ -40,7 +40,8 @@
         reminderTime: "09:00",
         landingNotify: true,
         mapMode: "classic",
-        camera: "route"
+        camera: "route",
+        journey: { legMin: 25, shortBreak: 5, longBreak: 15, longEvery: 4, autoStart: false }
       },
       tags: DEFAULT_TAGS.map(function (t) { return Object.assign({}, t); }),
       flights: [],
@@ -61,6 +62,7 @@
     var out = Object.assign(base, data);
     out.profile = Object.assign(defaults().profile, data.profile || {});
     out.settings = Object.assign(defaults().settings, data.settings || {});
+    out.settings.journey = Object.assign(defaults().settings.journey, (data.settings && data.settings.journey) || {});
     out.ui = Object.assign(defaults().ui, data.ui || {});
     if (!Array.isArray(out.tags) || !out.tags.length) out.tags = defaults().tags;
     if (!Array.isArray(out.flights)) out.flights = [];

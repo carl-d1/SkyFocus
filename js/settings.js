@@ -28,13 +28,23 @@
           "</section>" +
 
           '<section class="glass set-sec"><h2>' + SF.icon("clock") + "Focus</h2>" +
-          '<div class="field"><span class="label">Booking mode</span>' + seg("booking", s.bookingMode, [["time", "Pick my time"], ["destination", "Pick my destination"]]) + "</div>" +
+          '<div class="field"><span class="label">Booking mode</span>' + seg("booking", s.bookingMode, [["time", "Pick my time"], ["destination", "Pick my destination"], ["journey", "Journey"]]) + "</div>" +
           '<label class="field"><span class="label">Default focus length (min)</span><input type="number" id="sDur" min="5" max="600" step="5" value="' + s.defaultDuration + '"></label>' +
           '<div class="field"><span class="label">Layover lengths (min)</span><div class="inline-row">' + s.breaks.map(function (b, i) {
             return '<input type="number" class="short" data-break="' + i + '" min="1" max="60" value="' + b + '" aria-label="Layover option ' + (i + 1) + '">';
           }).join("") + "</div></div>" +
           '<label class="field"><span class="label">Daily focus goal (min)</span><input type="number" id="sGoal" min="10" max="960" step="10" value="' + s.dailyGoalMin + '"></label>' +
           toggle("sDnd", s.dndChecklist, "Pre-departure check", "Checklist at the gate.") +
+          "</section>" +
+
+          '<section class="glass set-sec"><h2>' + SF.icon("route") + "Journeys</h2>" +
+          '<p class="muted">Several focus legs in a row, with layovers as breaks.</p>' +
+          '<label class="field"><span class="label">Leg length (min)</span><input type="number" id="jLeg" min="5" max="120" step="5" value="' + s.journey.legMin + '"></label>' +
+          '<div class="field"><span class="label">Layovers (min): short, long, long every N legs</span><div class="inline-row">' +
+          '<input type="number" class="short" id="jShort" min="1" max="60" value="' + s.journey.shortBreak + '" aria-label="Short layover minutes">' +
+          '<input type="number" class="short" id="jLong" min="1" max="90" value="' + s.journey.longBreak + '" aria-label="Long layover minutes">' +
+          '<input type="number" class="short" id="jEvery" min="2" max="8" value="' + s.journey.longEvery + '" aria-label="Long layover every N legs"></div></div>' +
+          toggle("jAuto", s.journey.autoStart, "Auto-start next leg", "Board automatically when a layover ends.") +
           "</section>" +
 
           '<section class="glass set-sec"><h2>' + SF.icon("sun") + "Display</h2>" +
@@ -116,6 +126,11 @@
           };
         });
         root.querySelector("#sDnd").onchange = function () { var v = this.checked; set(function (s) { s.settings.dndChecklist = v; }); };
+        num("#jLeg", 5, 120, function (s, v) { s.settings.journey.legMin = v; });
+        num("#jShort", 1, 60, function (s, v) { s.settings.journey.shortBreak = v; });
+        num("#jLong", 1, 90, function (s, v) { s.settings.journey.longBreak = v; });
+        num("#jEvery", 2, 8, function (s, v) { s.settings.journey.longEvery = v; });
+        root.querySelector("#jAuto").onchange = function () { var v = this.checked; set(function (s) { s.settings.journey.autoStart = v; }); };
         root.querySelector("#sMotion").onchange = function () { var v = this.checked; set(function (s) { s.settings.reducedMotion = v; }); };
         root.querySelector("#sSound").onchange = function () { var v = this.checked; set(function (s) { s.settings.sounds = v; }); };
         ui.$$("[data-seg]", root).forEach(function (g) {

@@ -108,9 +108,9 @@ Done:
 - Glass and paper design system (DESIGN.md), Smoked glass variant, spacing scale and shell grid, glass lab (`?lab=1`).
 - Maps: Classic (Esri dark or light canvas basemap) and Satellite (Esri World Imagery) through Leaflet 1.9.4, and a three.js r149 3D globe with real day and night imagery blended along the terminator. Each mode shows the built-in map instantly, swaps to the real one when its library loads, and keeps the built-in map (flat or canvas globe) if the network, tiles or WebGL are unavailable.
 - Holding pattern: while holding, the plane flies a racetrack loop at its position on every map. Each flight records its real track (route progress plus every hold), shown on the arrival report's route chart and replayed in the logbook.
+- Pomodoro journeys: book a chain of 2 to 8 legs (or an open journey) between nearby airports. Each leg is a normal focus flight, layovers are the breaks (short after each leg, long after every Nth), with optional auto boarding. Lengths are set in Settings, and the logbook groups the legs of each journey.
 
 Next:
-- Pomodoro journeys
 - Window view and Web Audio
 - Takeoff and landing scenes in 3D, then the wider motion pass
 - Stats dashboard, achievements and frequent-flyer tiers

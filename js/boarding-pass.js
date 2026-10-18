@@ -89,7 +89,7 @@
       self._timers = timers;
       var guard = { off: "Off", warn: "Warn on exit", divert: "Divert after " + s.strictMinutes + " min away" }[s.strictness];
 
-      ui.topbar(ui.topbarTitle("Gate " + af.gate + " · " + af.from + " → " + af.to),
+      ui.topbar(ui.topbarTitle("Gate " + af.gate + " · " + af.from + " → " + af.to) + (af.journeyId ? '<span class="leg-tag">' + SF.journey.legLabel(af) + "</span>" : ""),
         '<button class="btn" id="backBook">' + SF.icon("x") + "<span>Change booking</span></button>");
       root.innerHTML =
         '<div class="gate-grid"><div class="pass-wrap" id="passWrap"></div>' +
@@ -105,7 +105,24 @@
 
       var pass = SF.renderPass(af);
       root.querySelector("#passWrap").appendChild(pass);
-      document.getElementById("backBook").onclick = function () { SF.engine.cancel(); ui.go("book"); };
+      document.getElementById("backBook").onclick = function () {
+        // leaving the gate during a journey ends the journey (no leg is lost: this one has not departed)
+        if (af.journeyId && SF.journey.active()) SF.journey.end();
+        SF.engine.cancel(); ui.go("book");
+      };
+      // Journey legs started by the layover timer board on their own after a short countdown.
+      if (SF.autoBoard) {
+        SF.autoBoard = false;
+        var n = 5, btn = root.querySelector("#boardBtn"), lbl = btn.querySelector("span");
+        lbl.textContent = "Boarding in " + n;
+        var autoIv = setInterval(function () {
+          n--;
+          if (n <= 0) { clearInterval(autoIv); lbl.textContent = "Board"; btn.click(); return; }
+          lbl.textContent = "Boarding in " + n;
+        }, 1000);
+        timers.push(autoIv);
+        root.addEventListener("pointerdown", function stop(e) { if (e.target.closest("#boardBtn")) return; clearInterval(autoIv); lbl.textContent = "Board"; root.removeEventListener("pointerdown", stop); });
+      }
 
       root.querySelector("#boardBtn").onclick = function () {
         var ap = root.querySelector("#apMode").checked;
@@ -152,7 +169,7 @@
       }
     },
     unmount: function () {
-      (this._timers || []).forEach(clearTimeout);
+      (this._timers || []).forEach(function (t) { clearTimeout(t); clearInterval(t); });
       if (this._cd) this._cd();
       this._cd = null;
     }

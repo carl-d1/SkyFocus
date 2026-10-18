@@ -40,7 +40,8 @@
       document.body.setAttribute("data-backdrop", "dark");
       ui.topbar(
         '<div class="glass ft-chip"><span class="tag-dot" style="--tag:' + af.tagColor + '">' + SF.icon(af.tagIcon) + "</span>" +
-        '<div><b class="mono">' + af.flightNo + "  " + af.from + " → " + af.to + "</b><small>" + (af.task ? SF.esc(af.task) : SF.esc(af.tagName)) + "</small></div></div>" +
+        '<div><b class="mono">' + af.flightNo + "  " + af.from + " → " + af.to + "</b><small>" + (af.task ? SF.esc(af.task) : SF.esc(af.tagName)) + "</small></div>" +
+        (af.journeyId ? '<span class="leg-tag">' + SF.journey.legLabel(af) + "</span>" : "") + "</div>" +
         (SF.dev ? '<div class="glass dev-row"><b>DEV</b><button data-jump="0.49">49%</button><button data-jump="0.84">84%</button><button data-jump="0.97">97%</button><button id="devAway">AWAY 5S</button></div>' : ""),
         '<div class="glass ft-tools" role="toolbar" aria-label="Map controls">' +
         '<span class="map-note" id="mapBadge" hidden></span>' +
@@ -85,7 +86,7 @@
 
         '<footer class="strip-ctrl">' +
         '<button class="btn" id="holdBtn">' + SF.icon("pause") + '<span id="holdTxt">Hold</span><small id="holdsLeft"></small></button>' +
-        '<button class="btn btn-text danger" id="divertBtn">' + SF.icon("alert") + "<span>Divert</span></button>" +
+        '<button class="btn btn-text danger" id="divertBtn">' + SF.icon("alert") + "<span>" + (af.journeyId ? "End journey" : "Divert") + "</span></button>" +
         "</footer></aside>" +
         "</div>";
 
@@ -111,6 +112,11 @@
         host.innerHTML = "";
         mapObj = SF.maps.create(host, mode, { camera: camera, planeSize: 34, label: "Live flight map, " + A.city + " to " + B.city, insets: insets, onMode: showBadge });
         mapObj.api.setRoute(A, B);
+        // the rest of a journey, drawn ahead of this leg
+        var jj = SF.journey.active();
+        if (jj && af.journeyId === jj.id) {
+          mapObj.api.setRoutes(jj.legs.slice(af.legIndex + 1).map(function (l) { return { from: SF.airport(l.from), to: SF.airport(l.to), cls: "leg-later" }; }));
+        }
         var st = SF.flight.status(SF.store.state.activeFlight);
         mapObj.api.setProgress(st.routeFrac, st.hold ? { hold: st.hold } : null);
         mapObj.api.setCamera(camera, true);
@@ -175,8 +181,12 @@
       $("divertBtn").onclick = function () {
         var cur = SF.store.state.activeFlight;
         if (!cur) return;
-        ui.confirm("Divert flight " + cur.flightNo, "Return to <b>" + SF.esc(cur.fromCity) + "</b>. The flight is logged as diverted with the distance flown so far. No stamp is issued.", "Divert", true)
-          .then(function (ok) { if (ok && SF.store.state.activeFlight) SF.engine.divert("manual"); });
+        var inJourney = !!cur.journeyId;
+        ui.confirm(inJourney ? "End journey" : "Divert flight " + cur.flightNo,
+          inJourney ? "This leg returns to <b>" + SF.esc(cur.fromCity) + "</b> and is logged as diverted. Completed legs stay in the logbook."
+            : "Return to <b>" + SF.esc(cur.fromCity) + "</b>. The flight is logged as diverted with the distance flown so far. No stamp is issued.",
+          inJourney ? "End journey" : "Divert", true)
+          .then(function (ok) { if (ok && SF.store.state.activeFlight) SF.engine.divert(inJourney ? "journey" : "manual"); });
       };
 
       /* ---------- instruments ---------- */

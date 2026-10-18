@@ -87,19 +87,30 @@
           tb.innerHTML = '<tr><td colspan="8" class="empty-cell">NO ENTRIES. THE FIRST LANDING WILL BE RECORDED HERE.</td></tr>' + blanks(PAGE_ROWS - 1);
           return;
         }
+        var headed = {}, rowsShown = 0;
         tb.innerHTML = list.map(function (r) {
-          var d = new Date(r.startAt);
-          return '<tr tabindex="0" data-id="' + r.id + '" aria-label="Open boarding pass ' + r.flightNo + '">' +
+          var d = new Date(r.startAt), head = "";
+          // the first leg of a journey met in the list carries a header with the journey totals
+          if (r.journeyId && !headed[r.journeyId]) {
+            headed[r.journeyId] = true;
+            var js = SF.journey.summary(r.journeyId), live = SF.journey.active() && SF.journey.active().id === r.journeyId;
+            head = '<tr class="journey-head"><td colspan="5"><span class="leg-tag">JOURNEY</span> <b class="mono">' + js.stops.join(" → ") + "</b>" +
+              '<small class="mono"> · ' + js.landed + " OF " + js.legs + " LEGS LANDED" + (live ? " · IN PROGRESS" : js.endedEarly ? " · ENDED EARLY" : "") + "</small></td>" +
+              '<td class="mono num">' + SF.fmt.dur(js.minutes) + '</td><td class="mono num">' + js.miles.toLocaleString() + '</td><td class="col-status"></td></tr>';
+            rowsShown++;
+          }
+          rowsShown++;
+          return head + '<tr tabindex="0" data-id="' + r.id + '" class="' + (r.journeyId ? "leg-row" : "") + '" aria-label="Open boarding pass ' + r.flightNo + '">' +
             '<td class="mono">' + SF.fmt.shortDate(d) + " " + SF.fmt.time(d) + "</td>" +
             '<td class="mono">' + r.flightNo + "</td>" +
-            '<td class="mono"><b>' + r.from + " → " + r.to + "</b></td>" +
+            '<td class="mono"><b>' + r.from + " → " + r.to + "</b>" + (r.legIndex != null ? ' <small class="muted">L' + (r.legIndex + 1) + "</small>" : "") + "</td>" +
             '<td><span class="tag-pill" style="--tag:' + r.tagColor + '">' + SF.esc(r.tagName) + "</span></td>" +
             '<td class="col-task">' + (r.task ? SF.esc(r.task) : "") + "</td>" +
             '<td class="mono num">' + SF.fmt.dur(r.focusMin) + "</td>" +
             '<td class="mono num">' + r.miles.toLocaleString() + "</td>" +
             '<td class="col-status"><span class="status ' + r.status + '">' + (r.status === "landed" ? "Landed" : "Diverted") + "</span></td></tr>";
         }).join("") || '<tr><td colspan="8" class="empty-cell">NO ENTRIES MATCH FILTER.</td></tr>';
-        tb.innerHTML += blanks(Math.max(0, PAGE_ROWS - Math.max(1, list.length)));
+        tb.innerHTML += blanks(Math.max(0, PAGE_ROWS - Math.max(1, rowsShown)));
       }
       function open(e) {
         var tr = e.target.closest("tr[data-id]"); if (!tr) return;
