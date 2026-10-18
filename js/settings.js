@@ -77,12 +77,31 @@
           '<section class="glass set-sec" id="shortcuts"><h2>' + SF.icon("keyboard") + 'Keyboard shortcuts</h2><dl class="kbd-list">' +
           ui.SHORTCUTS.map(function (k) { return "<dt><kbd>" + k[0] + "</kbd></dt><dd>" + k[1] + "</dd>"; }).join("") + "</dl></section>" +
 
+          (SF.desktop ? '<section class="glass set-sec"><h2>' + SF.icon("pill") + "Desktop</h2>" +
+            toggle("dPillMin", true, "Pill when minimised", "Opens the mini pill when you minimise during a flight or layover.") +
+            toggle("dGhost", false, "Ghost pill", "Semi-transparent and click-through until the mouse is over it.") +
+            toggle("dStartup", false, "Launch at startup", "Start SkyFocus when you sign in to Windows.") +
+            '<h3 class="set-sub">Notifications</h3>' +
+            toggle("nLand", s.notify.landing, "Landing", "When a flight lands.") +
+            toggle("nLay", s.notify.layover, "Layover over", "When a break ends.") +
+            toggle("nLegs", s.notify.legs, "Journey legs", "When the next leg of a journey departs.") +
+            toggle("nRem", s.reminderEnabled, "Daily reminder", "Once a day if the goal is not met yet.") +
+            '<label class="field" id="remRow"' + (s.reminderEnabled ? "" : " hidden") + '><span class="label">Reminder time</span><input type="time" id="nRemTime" value="' + SF.esc(s.reminderTime || "09:00") + '"></label>' +
+            "</section>" : "") +
+
           '<section class="glass set-sec"><h2>' + SF.icon("download") + "Your data</h2>" +
-          '<p class="muted">Stored in this browser only' + (SF.isFile ? ". File mode: separate from the start.bat version" : "") + ".</p>" +
+          '<p class="muted">' + (SF.desktop ? "Stored by the desktop app, separate from the browser version. Import a browser export to bring flights, stamps, achievements and tiers across" :
+            "Stored in this browser only" + (SF.isFile ? ". File mode: separate from the start.bat version" : "")) + ".</p>" +
+          (SF.desktop ? '<div class="row-btns"><button class="btn" id="backupBtn">' + SF.icon("download") + '<span>Backup now</span></button><button class="btn" id="folderBtn">' + SF.icon("logbook") + "<span>Open data folder</span></button></div>" : "") +
           '<div class="row-btns"><button class="btn" id="exportBtn">' + SF.icon("download") + '<span>Export JSON</span></button>' +
           '<label class="btn" tabindex="0" id="importLbl">' + SF.icon("upload") + '<span>Import JSON</span><input type="file" id="importFile" accept="application/json,.json" hidden></label></div>' +
           '<div class="danger-zone"><b>Reset</b><p class="muted">Deletes all flights, stamps and settings in this browser.</p><button class="btn btn-danger" id="resetBtn">' + SF.icon("trash") + "<span>Reset all data</span></button></div>" +
-          "</section></div>";
+          "</section>" +
+          // the version line; five clicks reveal a test switch that runs new flights 60 times faster
+          '<p class="set-version"><button type="button" class="btn-text" id="verBtn">SkyFocus 1.0.0' + (SF.desktop ? " · desktop" : "") + "</button></p>" +
+          '<section class="glass set-sec" id="testSec"' + (s.devSpeed ? "" : " hidden") + '><h2>' + SF.icon("flask") + "Test</h2>" +
+          toggle("tSpeed", s.devSpeed, "Test speed", "New flights and layovers run 60 times faster. For testing only.") + "</section>" +
+          "</div>";
         wire();
       }
 
@@ -205,6 +224,32 @@
           };
           reader.readAsText(fl);
         };
+        // test switch
+        var clicks = 0;
+        root.querySelector("#verBtn").onclick = function () { if (++clicks >= 5) root.querySelector("#testSec").hidden = false; };
+        root.querySelector("#tSpeed").onchange = function () { var v = this.checked; set(function (s) { s.settings.devSpeed = v; }); ui.toast(v ? "Test speed on: new flights run 60 times faster." : "Test speed off.", "flask"); };
+        // desktop preferences, notifications and data
+        if (SF.desktop) {
+          var D = SF.desktop;
+          D.getPrefs().then(function (p) {
+            if (!p) return;
+            root.querySelector("#dPillMin").checked = p.pillOnMinimise;
+            root.querySelector("#dGhost").checked = p.pillClickThrough;
+            root.querySelector("#dStartup").checked = p.launchAtStartup;
+          });
+          [["#dPillMin", "pillOnMinimise"], ["#dGhost", "pillClickThrough"], ["#dStartup", "launchAtStartup"]].forEach(function (x) {
+            root.querySelector(x[0]).onchange = function () { var o = {}; o[x[1]] = this.checked; D.setPrefs(o).then(saved); };
+          });
+          [["#nLand", "landing"], ["#nLay", "layover"], ["#nLegs", "legs"]].forEach(function (x) {
+            root.querySelector(x[0]).onchange = function () { var v = this.checked; set(function (s) { s.settings.notify[x[1]] = v; }); };
+          });
+          root.querySelector("#nRem").onchange = function () { var v = this.checked; root.querySelector("#remRow").hidden = !v; set(function (s) { s.settings.reminderEnabled = v; }); };
+          root.querySelector("#nRemTime").onchange = function () { var v = this.value || "09:00"; set(function (s) { s.settings.reminderTime = v; }); };
+          root.querySelector("#backupBtn").onclick = function () {
+            D.backupNow(SF.store.exportJSON()).then(function (f) { ui.toast(f ? "Backup saved: " + f.split(/[\/]/).pop() : "Backup failed.", f ? "check" : "alert", 5000); });
+          };
+          root.querySelector("#folderBtn").onclick = function () { D.openDataFolder(); };
+        }
         root.querySelector("#resetBtn").onclick = function () {
           var body = ui.h('<div><p>Permanently deletes every flight, stamp and setting in this browser. Export first to keep a copy.</p>' +
             '<label class="field"><span class="label">Type RESET to confirm</span><input id="resetTxt" autocomplete="off" autofocus></label></div>');

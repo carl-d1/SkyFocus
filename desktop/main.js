@@ -231,7 +231,9 @@ function pillDrag(type, d) {
 }
 
 /* ---------- notifications, tray and taskbar ---------- */
+function testLog(line) { if (process.env.SKYFOCUS_LOG) fs.appendFileSync(process.env.SKYFOCUS_LOG, "host " + line + require("os").EOL); }
 function notify(title, body) {
+  if (TEST) { testLog("notify " + title + " | " + body); return; }   // test runs stay off the user's screen
   if (!Notification.isSupported()) return;
   const n = new Notification({ title: title, body: body, icon: ICON, silent: false });
   n.on("click", showMain);
@@ -261,17 +263,19 @@ async function confirmDivert() {
   if (r.response === 0) command({ type: "divert" });
 }
 function createTray() {
+  if (TEST) return;
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, "icons", "tray.png")));
   tray.setToolTip("SkyFocus");
   tray.setContextMenu(trayMenu());
   tray.on("click", showMain);
 }
-let lastTrayKey = "";
+let lastTrayKey = "", lastTip = "";
 function updateShell() {
   // tray tooltip and menu
   let tip = "SkyFocus";
   if (snap.kind === "flight") tip = snap.from + " to " + snap.to + " · " + fmtLeft(snap.remainingMs) + " left" + (snap.holding ? " · holding" : "");
   else if (snap.kind === "layover") tip = "Layover at " + snap.at + " · " + fmtLeft(snap.remainingMs) + " left";
+  if (TEST && tip !== lastTip) { lastTip = tip; if (!/\d\d:\d\d|\dh/.test(tip) || Math.random() < .1) testLog("tray " + tip + " | progress " + (snap.progress || 0).toFixed(3) + (snap.holding ? " paused" : "")); }
   if (tray) {
     tray.setToolTip(tip);
     const key = snap.kind + (snap.holding ? "h" : "");
@@ -357,6 +361,17 @@ function testHooks() {
   if (process.env.SKYFOCUS_OFFLINE) {   // SKYFOCUS_OFFLINE=1: every network request fails, as with no connection
     win.webContents.session.webRequest.onBeforeRequest({ urls: ["http://*/*", "https://*/*"] }, (d, cb) => cb({ cancel: true }));
   }
+  // SKYFOCUS_HOST_CMDS="hold@3000;minimize@5000": the tray and window actions, at times after load
+  (process.env.SKYFOCUS_HOST_CMDS || "").split(";").filter(Boolean).forEach((c) => {
+    const [name, at] = c.split("@");
+    setTimeout(() => {
+      testLog("cmd " + name);
+      if (name === "minimize") win.minimize();
+      else if (name === "close") win.close();
+      else if (name === "restore") showMain();
+      else command({ type: name });
+    }, +at || 0);
+  });
   const shot = process.env.SKYFOCUS_SHOT;
   if (!shot && !process.env.SKYFOCUS_EXEC) return;
   win.webContents.once("did-finish-load", async () => {

@@ -477,3 +477,7 @@ body.airplane .wv-label { left: var(--gutter); }
 .tier-ladder small { font-family: var(--font-mono); font-size: 10px; }
 .mcard-btn { display: block; width: 100%; max-width: 420px; padding: 0; border: 0; background: none; cursor: pointer; perspective: 1200px; align-self: center; }
 .mcard-btn .mcard { transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); }
+
+.set-sub { margin: var(--s-4) 0 var(--s-1); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--glass-muted); }
+.set-version { grid-column: 1 / -1; margin: 0; text-align: center; }
+.set-version .btn-text { background: none; border: 0; color: var(--glass-muted); font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; cursor: default; }

@@ -58,6 +58,41 @@
   // F (outside the flight screen, where F is airplane mode) and the window fullscreen
   SF.toggleFullscreen = function () { D.toggleFullscreen(); };
 
+  /* ---------- first launch: bring data across from the browser version ---------- */
+  function offerImport() {
+    var body = ui.h('<div><p>Desktop data is stored separately from the browser version. To bring your flights, stamps, achievements and tier across, ' +
+      "export from the browser version (Settings, Your data, Export JSON) and import the file here.</p>" +
+      '<input type="file" id="firstImport" accept="application/json,.json" hidden></div>');
+    var input = body.querySelector("#firstImport");
+    var m = ui.modal({
+      title: "Welcome to SkyFocus for Windows", body: body, cls: "modal-sm", dismissable: false,
+      actions: [
+        { label: "Start fresh", onClick: function () { D.firstRunDone(); } },
+        { label: "Import JSON", primary: true, icon: "upload", onClick: function () { input.click(); return false; } }
+      ]
+    });
+    input.onchange = function () {
+      var f = input.files && input.files[0];
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        var err = SF.store.importJSON(String(r.result));
+        if (err) { ui.toast(err, "alert", 5000); input.value = ""; return; }
+        D.firstRunDone();
+        if (m && m.close) m.close(true);
+        ui.applyTheme(); ui.buildNav();
+        if (SF.store.state.activeFlight && SF.store.state.activeFlight.started) SF.engine.run();
+        ui.toast("Import complete. " + SF.store.state.flights.length + " flights.", "check");
+        ui.go(SF.store.state.profile.onboarded ? "book" : "welcome");
+      };
+      r.readAsText(f);
+    };
+  }
+  // decided after start-up, so data already present (a resumed or seeded profile) skips the offer
+  D.isFirstRun().then(function (first) {
+    if (first) setTimeout(function () { if (SF.store.state.flights.length) D.firstRunDone(); else offerImport(); }, 800);
+  });
+
   /* ---------- presence for the distraction guard ----------
      visible: the main window is on screen, or the pill is. focused: SkyFocus or its pill is the
      active app. In airplane mode leaving focus counts as turbulence; otherwise only leaving view. */
