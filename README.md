@@ -57,7 +57,7 @@ css/
   components.css    Buttons, chips, fields, modal, toasts, boarding pass, stamps, seat map, atlas
   views.css         Per-screen layouts
 js/
-  data-airports.js  ~170 real airports (IATA, city, country, lat/lon, IANA time zone), as window.AIRPORTS
+  data-airports.js  ~445 real airports (IATA, city, country, lat/lon, IANA time zone), as window.AIRPORTS
   data-world.js     Simplified land outlines (Natural Earth 1:110m, public domain) for the offline map
   storage.js        localStorage wrapper (every access guarded; memory fallback)
   geo.js            Great-circle distance/bearing/interpolation, flight-time estimate, sun position
