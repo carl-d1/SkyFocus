@@ -25,7 +25,7 @@ Cockpit is the Flight Ops identity carried into the glass. It is a style for con
 - **One signal colour (#FFC400)**, used only for active and important states. Muted green and red are used for landed and diverted status only.
 
 ### 3. Paper (`.paper`)
-Paper is for documents only: the boarding pass, membership card, and the arrival and check-in forms. The logbook and passport are glass sheets, so they match the rest of the app; stamps shown on glass use a light ink (`SF.stampSVG(s, size, { onDark: true })`).
+Paper is for documents only: the boarding pass (and later the membership card). The logbook, passport, arrival report and check-in form are glass sheets, so they match the rest of the app; stamps shown on glass use a light ink (`SF.stampSVG(s, size, { onDark: true })`).
 
 - Paper items are physical objects resting on the scene, with their own shadow, edge and grain.
 - Paper is square-cornered (2px), with ruled boxes, form numbers and printed type.

@@ -145,29 +145,29 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
    ========================================================= */
 .arrival { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s-5); align-items: stretch; }
 .report { display: flex; flex-direction: column; gap: var(--s-5); padding: var(--s-6); min-height: 0; overflow: auto; }
-.report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-4); padding-bottom: var(--s-4); border-bottom: 2px solid var(--paper-ink); }
+.report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-4); padding-bottom: var(--s-4); border-bottom: 2px solid var(--glass-text); }
 .report-head h1 { font-size: 44px; text-transform: uppercase; letter-spacing: .02em; margin-top: var(--s-1); }
-.report-head .stat-line { font-family: var(--font-mono); font-size: 13px; color: var(--paper-muted); margin-top: var(--s-2); }
-.report-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; border-left: 1px solid var(--paper-rule); border-top: 1px solid var(--paper-rule); }
-.report-grid > div { padding: var(--s-2) var(--s-3) var(--s-3); border-right: 1px solid var(--paper-rule); border-bottom: 1px solid var(--paper-rule); }
-.report-grid dt { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); }
+.report-head .stat-line { font-family: var(--font-mono); font-size: 13px; color: var(--glass-muted); margin-top: var(--s-2); }
+.report-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; border-left: 1px solid var(--glass-rule); border-top: 1px solid var(--glass-rule); }
+.report-grid > div { padding: var(--s-2) var(--s-3) var(--s-3); border-right: 1px solid var(--glass-rule); border-bottom: 1px solid var(--glass-rule); }
+.report-grid dt { font-family: var(--font-sign); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--glass-muted); }
 .report-grid dd { margin: var(--s-1) 0 0; font-family: var(--font-mono); font-size: 18px; font-weight: 600; white-space: nowrap; }
 .report-grid .wide { grid-column: 1 / -1; }
 .report-grid .wide dd { font-family: var(--font-body); font-size: 16px; }
-.divert-why { font-family: var(--font-mono); font-size: 12px; color: var(--paper-red); margin-top: var(--s-2); }
+.divert-why { font-family: var(--font-mono); font-size: 12px; color: var(--bad); margin-top: var(--s-2); }
 .outcome { flex: 1; display: flex; flex-direction: column; gap: var(--s-4); }
 .outcome .field { flex: 1; grid-template-rows: auto minmax(64px, 1fr); }
 .outcome textarea { height: 100%; resize: none; }
 .tickboxes { display: flex; gap: var(--s-5); flex-wrap: wrap; }
-.tickbox { display: inline-flex; align-items: center; gap: var(--s-2); height: 32px; border: 0; background: none; padding: 0; color: var(--paper-ink); font-family: var(--font-sign); font-size: 15px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
-.tickbox i { width: 20px; height: 20px; box-shadow: inset 0 0 0 2px var(--paper-ink); display: grid; place-items: center; font-style: normal; }
+.tickbox { display: inline-flex; align-items: center; gap: var(--s-2); height: 32px; border: 0; background: none; padding: 0; color: var(--glass-text); font-family: var(--font-sign); font-size: 15px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.tickbox i { width: 20px; height: 20px; box-shadow: inset 0 0 0 2px var(--glass-text); display: grid; place-items: center; font-style: normal; }
 .tickbox.on i::after { content: "X"; font-family: var(--font-mono); font-size: 14px; font-weight: 700; line-height: 1; }
 .arr-side { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--s-5); min-height: 0; }
 .passport-page { display: flex; flex-direction: column; padding: var(--s-5); min-height: 0; }
-.passport-page .pp-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--s-2); border-bottom: 1px solid var(--paper-rule); }
+.passport-page .pp-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--s-2); border-bottom: 1px solid var(--glass-rule); }
 .passport-page .stamp-wrap { flex: 1; min-height: 0; }
 .passport-page .stamp-wrap .stamp { width: auto; height: 100%; max-height: 440px; max-width: 100%; }
-.no-stamp { flex: 1; display: grid; place-items: center; color: var(--paper-muted); font-family: var(--font-mono); font-size: 13px; }
+.no-stamp { flex: 1; display: grid; place-items: center; color: var(--glass-muted); font-family: var(--font-mono); font-size: 13px; }
 .next-card { display: grid; gap: var(--s-4); padding: var(--s-5); }
 .next-card h3 { display: flex; align-items: center; gap: var(--s-2); text-transform: uppercase; letter-spacing: .08em; font-size: 16px; }
 
@@ -284,10 +284,8 @@ body[data-route="welcome"] .app { grid-template-columns: minmax(0, 1fr); }
 .ob-steps h3 { text-transform: uppercase; letter-spacing: .08em; margin-bottom: var(--s-1); }
 .ob-steps p { color: var(--muted); }
 .checkin { display: grid; gap: var(--s-5); padding: var(--s-6); }
-.checkin-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--s-3); border-bottom: 2px solid var(--paper-ink); }
+.checkin-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--s-3); border-bottom: 2px solid var(--glass-text); }
 .checkin-head h2 { text-transform: uppercase; letter-spacing: .04em; }
-.checkin .chips .chip { color: var(--paper-ink); background: transparent; border-radius: var(--r-paper); box-shadow: inset 0 0 0 1px var(--paper-ink); }
-.checkin .chips .chip.on { background: var(--paper-ink); color: var(--paper); }
 .checkin .btn-signal { width: 100%; }
 
 /* =========================================================

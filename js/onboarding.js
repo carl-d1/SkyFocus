@@ -1,4 +1,4 @@
-/* First launch: operating procedure on the left, paper check-in form on the right. */
+/* First launch: operating procedure on the left, check-in form on the right. */
 (function () {
   var SF = (window.SF = window.SF || {});
   var ui = SF.ui;
@@ -21,7 +21,7 @@
         '<ol class="ob-steps">' + STEPS.map(function (s) {
           return '<li><span class="n">' + s[0] + "</span><div><h3>" + s[1] + "</h3><p>" + s[2] + "</p></div></li>";
         }).join("") + "</ol></section>" +
-        '<form class="paper checkin" novalidate aria-label="Passenger check-in">' +
+        '<form class="glass checkin" novalidate aria-label="Passenger check-in">' +
         '<div class="checkin-head"><h2>Passenger check-in</h2><span class="form-no">FORM SF-00</span></div>' +
         '<label class="field"><span class="label">Passenger name</span><input id="obName" maxlength="40" required autocomplete="name"></label>' +
         '<label class="field"><span class="label">Home airport</span><div><input id="obHome" placeholder="City or IATA code"></div></label>' +

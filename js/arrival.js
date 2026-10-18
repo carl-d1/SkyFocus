@@ -23,7 +23,7 @@
     return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
   }
 
-  // opts.onDark: light ink for glass screens (logbook, passport); default dark ink for paper.
+  // opts.onDark: light ink for glass screens; default dark ink for paper.
   SF.stampSVG = function (s, size, opts) {
     size = size || 150;
     opts = opts || {};
@@ -120,7 +120,7 @@
 
       root.innerHTML =
         '<div class="arrival">' +
-        '<section class="paper report" aria-label="Arrival report">' +
+        '<section class="glass report" aria-label="Arrival report">' +
         '<div class="report-head"><div><p class="label">' + rec.flightNo + " · " + rec.from + " → " + rec.to + "</p>" +
         "<h1>" + (landed ? "Arrived " + SF.esc(here.city) : "Diverted") + "</h1>" +
         '<p class="stat-line">' + (landed ? "LOCAL " + SF.fmt.localTime(here.tz, new Date()) + " · " + SF.esc(here.country.toUpperCase())
@@ -146,8 +146,8 @@
         '<label class="field"><span class="label">Remarks</span><textarea id="note" rows="2" maxlength="400">' + SF.esc(rec.note) + "</textarea></label></div>" +
         "</section>" +
         '<aside class="arr-side">' +
-        '<div class="paper passport-page"><div class="pp-head"><span class="label">' + (landed && stamp ? (rec.newStamp ? "Stamp issued" : "Stamp on file") : "No stamp") + '</span><span class="form-no">PASSPORT P.' + String(Math.max(1, stampCount)).padStart(2, "0") + "</span></div>" +
-        (landed && stamp ? '<div class="stamp-wrap' + (rec.newStamp ? " fresh" : "") + '">' + SF.stampSVG(stamp, 240) + "</div>"
+        '<div class="glass passport-page"><div class="pp-head"><span class="label">' + (landed && stamp ? (rec.newStamp ? "Stamp issued" : "Stamp on file") : "No stamp") + '</span><span class="form-no">PASSPORT P.' + String(Math.max(1, stampCount)).padStart(2, "0") + "</span></div>" +
+        (landed && stamp ? '<div class="stamp-wrap' + (rec.newStamp ? " fresh" : "") + '">' + SF.stampSVG(stamp, 240, { onDark: true }) + "</div>"
           : '<div class="no-stamp">DIVERTED FLIGHTS ARE NOT STAMPED</div>') +
         "</div>" +
         '<div class="glass next-card"><h3>' + SF.icon("coffee") + "Layover</h3><p class=\"muted\">Break before the next departure.</p>" +

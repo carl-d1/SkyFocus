@@ -460,13 +460,8 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
 .atlas-hold { stroke: var(--map-flown); stroke-width: 1.5; stroke-dasharray: 3 4; }
 .atlas-track { stroke: var(--map-flown); stroke-width: 2.5; stroke-linejoin: round; }
 
-/* Paper route chart: the built-in map printed in ink on the arrival report */
-.chart {
-  --map-ocean: #e8e1d2; --map-land: #f7f3ea; --map-coast: #9a907c; --map-grat: rgba(29, 28, 25, .07);
-  --map-route: rgba(29, 28, 25, .45); --map-flown: #1d1c19; --map-label: #1d1c19; --map-night: transparent;
-  position: relative; border: 1px solid var(--paper-rule); overflow: hidden;
-}
-.chart .atlas-track { stroke: var(--paper-red); stroke-width: 2; }
-.chart .atlas-hold { stroke: var(--paper-red); }
-.atlas-dots circle.m-hold, .chart .atlas-dots circle.m-hold { fill: var(--paper-red); }
-.atlas-labels text.m-hold { fill: var(--paper-red); }
+/* Route chart on the arrival report and in the logbook viewer: the built-in map, night shading off */
+.chart { position: relative; overflow: hidden; border-radius: var(--r-glass-sm); box-shadow: inset 0 0 0 1px var(--glass-rule); --map-night: transparent; }
+.atlas-track { stroke: var(--map-flown); }
+.atlas-dots circle.m-hold { fill: var(--map-flown); }
+.atlas-labels text.m-hold { fill: var(--map-flown); }
