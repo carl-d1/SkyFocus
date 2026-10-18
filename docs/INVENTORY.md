@@ -54,3 +54,24 @@ defaultDuration, bookingMode, graphics, breaks, units, clock24, theme, reducedMo
 No globe.gl and no motion library are used: the globe, scenes and springs are written on three.js and plain JavaScript.
 
 Local data: `js/data-airports.js` (445 airports), `js/data-world.js` (Natural Earth 110m land), `assets/logo.svg`, `assets/plane.svg`, `assets/favicon.svg`.
+
+## Desktop app additions
+
+| Area | What to check |
+|---|---|
+| Window | Frameless, opens maximised the first time, remembers size and position, minimum 1100 by 700 |
+| Top bar controls | Pill, minimise, maximise or restore (icon follows state), fullscreen, close (red on hover); hidden in fullscreen until the mouse reaches the top edge; no overlap at 1366 by 768 and 1920 by 1080 |
+| Drag region | Empty top bar drags the window, double-click maximises, drag to edges snaps |
+| Keys | F11 and F (outside the flight screen) fullscreen, Esc leaves it, P opens the pill |
+| Mini pill | Flight, hover controls, holding, layover, journey dots, landing glow and chime, idle with Book 25 min; drag and snap; remembered position; ghost click-through; double-click opens the app |
+| Pill opens | On minimise during a flight or layover (setting), top bar button, tray, P |
+| Tray | Tooltip with route and time left; Show, Show pill, Hold or Resume, Divert with confirmation, Quit |
+| Close | During a flight or layover hides to the tray (and opens the pill) with a one-time note |
+| Notifications | Landing, layover over, journey leg departed, daily reminder |
+| Taskbar | Progress bar, paused while holding; flashes on landing when not focused |
+| Distraction guard | Airplane mode counts switching apps; the pill counts as the cabin |
+| Settings | Desktop section, notification switches, Backup now, Open data folder, hidden test speed |
+| First launch | Offers to import a browser export |
+| Offline | Everything except map tiles; the built-in map shows "Offline" |
+| Security | No Node in pages, CSP, external links in the default browser |
+| Single instance | A second launch focuses the running window |

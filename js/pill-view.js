@@ -89,6 +89,10 @@
       /* ---------- landing chime (desktop pill only; the app chimes for itself) ---------- */
       var actx = null;
       function chime() {
+        // the cabin ding dong, then the synthesised two tones if the file cannot play
+        try { var a = new doc.defaultView.Audio(host.chimeUrl || "../assets/sounds/chime.mp3"); a.volume = .9; a.play().catch(synth); return; } catch (e) { synth(); }
+      }
+      function synth() {
         try {
           var AC = doc.defaultView.AudioContext || doc.defaultView.webkitAudioContext;
           actx = actx || new AC();

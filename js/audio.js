@@ -1,6 +1,6 @@
 /* Cabin audio, all synthesised with Web Audio (no sound files).
    Layers: engine hum, rain, white noise and an ambient pad, each with its own level, plus a master
-   level and mute. Effects: announcement chime, takeoff swoosh, touchdown thump.
+   level and mute. Effects: the cabin ding dong (assets/sounds/chime.mp3), takeoff swoosh, touchdown thump.
    The context starts on the first user gesture (browsers require one). Which layers play depends on
    the scene a view sets: "cabin" (in flight: all layers), "layover" (no engine) or "idle" (effects only).
    The mix is saved in state.audioMix; the Sound switch in Settings silences everything. */
@@ -56,6 +56,21 @@
   function loop(buffer) { var s = ctx.createBufferSource(); s.buffer = buffer; s.loop = true; return s; }
 
   /* ---------- graph ---------- */
+  var CHIME_URL = "assets/sounds/chime.mp3", chimeBuf = null;
+  function loadChime() {
+    if (location.protocol === "file:" || !window.fetch) return;
+    fetch(CHIME_URL).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(function (b) { return ctx.decodeAudioData(b); })
+      .then(function (buf) { chimeBuf = buf; }, function () { /* synthesised chime instead */ });
+  }
+  function synthChime() {
+    var t = ctx.currentTime + .02;
+    [[987.8, 0], [740, .42]].forEach(function (n) {
+      tone(n[0], t + n[1], 1.6, .12);
+      tone(n[0] * 2.01, t + n[1], .7, .025);
+      tone(n[0] * 3.02, t + n[1], .35, .01);
+    });
+  }
   function build() {
     var comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 3;
@@ -174,6 +189,7 @@
   var A = (SF.audio = {
     LAYERS: LAYERS,
     get ready() { return !!ctx; },
+    get chimeFile() { return !!chimeBuf; },
     get state() { return ctx ? ctx.state : "none"; },
     // Output level, 0 to 1 (RMS), for the meter in the sound panel.
     meter: function () {
@@ -192,6 +208,7 @@
           if (!AC) return;
           ctx = new AC();
           build();
+          loadChime();
           padTimer = setInterval(padChord, 8000);
           padChord();
         }
@@ -213,14 +230,21 @@
       setThrottle(level, true);
     },
 
+    // The cabin ding dong. Over http and in the desktop app it is decoded once and played through the
+    // mix (master level and mute apply); over file://, where audio files cannot be decoded, a plain audio
+    // element plays it. The synthesised two-tone chime stands in if the file cannot load.
     chime: function () {
       if (!ctx || !audible()) return;
-      var t = ctx.currentTime + .02;
-      [[987.8, 0], [740, .42]].forEach(function (n) {
-        tone(n[0], t + n[1], 1.6, .12);
-        tone(n[0] * 2.01, t + n[1], .7, .025);
-        tone(n[0] * 3.02, t + n[1], .35, .01);
-      });
+      if (chimeBuf) {
+        var src = ctx.createBufferSource(), g = ctx.createGain();
+        src.buffer = chimeBuf; g.gain.value = .9;
+        src.connect(g); g.connect(out); src.start();
+        return;
+      }
+      if (location.protocol === "file:") {
+        try { var el = new Audio(CHIME_URL); el.volume = Math.min(1, mix().master * .9); el.play().catch(synthChime); return; } catch (e) { /* fall through */ }
+      }
+      synthChime();
     },
     swoosh: function () {
       if (!ctx || !audible()) return;

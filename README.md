@@ -2,7 +2,7 @@
 
 A flight-themed focus timer. Each focus session is a simulated flight between real airports: book a route, focus while the plane crosses the map, and land to log it, earn miles and collect a passport stamp.
 
-Runs entirely in the browser. No installs, no build step, no account.
+Runs entirely in the browser (no installs, no build step, no account), or as a Windows desktop app built with Electron.
 
 ## Launching
 
@@ -18,6 +18,31 @@ Runs entirely in the browser. No installs, no build step, no account.
 - Browser notifications (reminders, landing alerts) need the `start.bat` version.
 
 A small dismissible banner explains this when you open the file directly.
+
+## Desktop app (Windows)
+
+The finished builds are in `dist/`:
+
+- `dist\SkyFocus-1.0.0-portable.exe`: run it from anywhere. No install and no admin rights.
+- `dist\SkyFocus-1.0.0-setup.exe`: installer with Start menu and desktop shortcuts and an uninstaller.
+
+The desktop app works fully offline (libraries, fonts and globe imagery are bundled in `vendor/`); only the Classic and Satellite map tiles need the internet, and the built-in map stands in with an "Offline" note when they cannot load. Its data is stored separately from the browser version: on first launch it offers to import a JSON export, and Settings has Backup now and Open data folder.
+
+Desktop extras: a frameless window with minimise, maximise, fullscreen and close in the top bar (drag the empty top bar to move, double-click to maximise, F11 or F for fullscreen, Esc to leave it); the mini pill (P, the pill button, the tray, or automatically when you minimise during a flight or layover), which stays on top and can be dragged and snapped to screen edges; a tray icon with Show, Show pill, Hold or Resume, Divert and Quit; native notifications; taskbar progress; single instance; optional launch at startup. Closing the window during a flight keeps SkyFocus running in the tray. In airplane mode, switching to another app counts as turbulence; using the pill does not.
+
+### Build and run from source
+
+Needs Node.js 20 or later.
+
+```
+npm install
+npm run desktop
+npm run dist
+```
+
+`npm run desktop` starts the app from this folder. `npm run dist` builds both exes into `dist/` (electron-builder 26.15.3, Electron 44.5.1). Desktop code lives in `desktop/` (`main.js`, `preload.js`, the pill window files and icons); the web version keeps working exactly as before through `index.html` and `start.bat`.
+
+A hidden test switch speeds new flights up 60 times in any build: click the version line at the bottom of Settings five times.
 
 ### Dev / test options
 

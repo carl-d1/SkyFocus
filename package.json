@@ -32,17 +32,28 @@
       "desktop/**/*",
       "!desktop/build/**/*",
       "!**/*.map",
-      "!**/*.md",
-      "package.json"
+      "package.json",
+      "!vendor/README.md"
     ],
     "asar": true,
     "win": {
       "icon": "desktop/build/icon.ico",
       "target": [
-        { "target": "portable", "arch": ["x64"] },
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "artifactName": "${productName}-${version}-${arch}-setup.${ext}"
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}",
+      "requestedExecutionLevel": "asInvoker"
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.exe"
@@ -56,6 +67,11 @@
       "shortcutName": "SkyFocus",
       "uninstallDisplayName": "SkyFocus",
       "artifactName": "${productName}-${version}-setup.${ext}"
-    }
+    },
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US",
+      "en-GB"
+    ]
   }
 }
