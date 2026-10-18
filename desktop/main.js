@@ -105,6 +105,7 @@ function createMain() {
     const sz = (process.env.SKYFOCUS_SIZE || "1366x768").split("x").map(Number);
     win.setBounds({ x: -6000, y: 0, width: sz[0], height: sz[1] });
     win.once("ready-to-show", () => win.showInactive());
+    win.webContents.setAudioMuted(true);   // test runs are silent
   } else {
     if (!ws || ws.maximized) win.maximize();   // first launch opens maximised
     win.once("ready-to-show", () => win.show());
@@ -187,6 +188,7 @@ function openPill() {
   pillWin.setAlwaysOnTop(true, "floating");
   pillWin.setVisibleOnAllWorkspaces(true);
   guard(pillWin.webContents);
+  if (TEST) pillWin.webContents.setAudioMuted(true);
   pillWin.loadURL(ORIGIN + "/desktop/pill.html");
   pillWin.once("ready-to-show", () => { pillWin.showInactive(); applyClickThrough(); pushPill(); });
   if (process.env.SKYFOCUS_PILL_EXEC) pillWin.webContents.once("did-finish-load", () => setTimeout(() => pillWin && pillWin.webContents.executeJavaScript(process.env.SKYFOCUS_PILL_EXEC, true).catch(() => {}), 600));
