@@ -52,10 +52,11 @@
       var q = (SF.store.state.settings.graphics) || "high";
       var reduce = SF.ui.reducedMotion();
       var dir = /[D-F]$/i.test(opts.seat || "A") ? -1 : 1;   // 1: left side, -1: right side
-      host.innerHTML = '<canvas class="wv-sky" aria-hidden="true"></canvas><svg class="wv-wall" aria-hidden="true"></svg>' +
+      host.innerHTML = '<canvas class="wv-sky" aria-hidden="true"></canvas><svg class="wv-wall" aria-hidden="true"></svg><canvas class="wv-glow" aria-hidden="true"></canvas>' +
         '<div class="glass wv-label"><span class="label">Window · seat ' + SF.esc(opts.seat || "A") + " · looking " + (dir > 0 ? "left" : "right") + '</span><b class="readout readout-sm" id="wvRead">--</b></div>';
       host.setAttribute("role", "img");
       host.setAttribute("aria-label", "View from the cabin window");
+      var glowCv = host.querySelector(".wv-glow"), gg = glowCv.getContext("2d"), glowMask = null;
       var cv = host.querySelector("canvas"), g = cv.getContext("2d"), wall = host.querySelector("svg"), read = host.querySelector("#wvRead");
       var dpr = Math.min(window.devicePixelRatio || 1, q === "high" ? 1.5 : 1), W = 0, H = 0, wins = [], centre = null;
 
@@ -77,14 +78,20 @@
       function wrapA(o, span) { if (o.a < -span / 2) o.a += span; else if (o.a > span / 2) o.a -= span; }
 
       /* ---------- palette and sprites (rebuilt as the light changes) ---------- */
-      var P = null, sun = null, sprites = [], streaks = [], lastLight = 0;
+      var P = null, sun = null, moon = null, moonK = 0, dayness = 1, overWater = false, sprites = [], streaks = [], lastLight = 0;
       function light(st) {
         var when = new Date();
         if (SF.devSunHour != null) { var d = new Date(); when = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + (SF.devSunHour - st.pos.lon / 15) * 3600000); }
         sun = SF.sky.sunAt(st.pos, when);
         P = SF.sky.palette(sun.el);
-        sprites = [0, 1, 2].map(function (k) { return puff(P.cloud, 11 + k, 256, 128); });
-        streaks = [0, 1].map(function (k) { return streak(P.cloud, 31 + k); });
+        moon = SF.geo.moon(when, st.pos.lat, st.pos.lon);
+        dayness = clamp((sun.el + 6) / 14, 0, 1);
+        // moonlight: how full, how high, and how dark the sky is
+        moonK = moon.el > -1 ? moon.fraction * clamp((moon.el + 1) / 10, 0, 1) * (1 - dayness) : 0;
+        overWater = !SF.geo.isLand(st.pos.lat, st.pos.lon);
+        var cloudCol = SF.sky.mix(P.cloud, [150, 166, 210], Math.min(.6, moonK * .8));
+        sprites = [0, 1, 2].map(function (k) { return puff(cloudCol, 11 + k, 256, 128); });
+        streaks = [0, 1].map(function (k) { return streak(cloudCol, 31 + k); });
         lastLight = Date.now();
       }
 
@@ -115,6 +122,21 @@
         });
         var seams = "";
         for (var sx = (cx - gap / 2) % gap; sx < w; sx += gap) seams += '<line x1="' + sx + '" y1="0" x2="' + sx + '" y2="' + h + '" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/><line x1="' + (sx + 1.5) + '" y1="0" x2="' + (sx + 1.5) + '" y2="' + h + '" stroke="rgba(255,255,255,.04)"/>';
+        // glow around each window, cleared inside the openings; tinted every frame
+        glowCv.width = w * dpr; glowCv.height = h * dpr;
+        glowMask = document.createElement("canvas"); glowMask.width = w * dpr; glowMask.height = h * dpr;
+        var m = glowMask.getContext("2d");
+        m.scale(dpr, dpr);
+        function rrPath(o) { m.beginPath(); if (m.roundRect) m.roundRect(o.x, o.y, o.w, o.h, rr); else m.rect(o.x, o.y, o.w, o.h); }
+        wins.forEach(function (o) {
+          m.save(); m.shadowColor = "#fff"; m.shadowBlur = 90; m.fillStyle = "#fff"; rrPath(o); m.fill(); m.fill(); m.restore();
+          var sg = m.createRadialGradient(o.x + o.w / 2, o.y + o.h * .95, 0, o.x + o.w / 2, o.y + o.h * .95, o.h * .85);
+          sg.addColorStop(0, "rgba(255,255,255,.45)"); sg.addColorStop(1, "rgba(255,255,255,0)");
+          m.fillStyle = sg; m.fillRect(o.x - o.w, o.y + o.h * .4, o.w * 3, o.h * 1.4);
+        });
+        m.globalCompositeOperation = "destination-out";
+        m.fillStyle = "#000";
+        wins.forEach(function (o) { rrPath(o); m.fill(); });
         wall.setAttribute("viewBox", "0 0 " + w + " " + h);
         wall.innerHTML =
           '<defs><linearGradient id="wvWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b3934"/><stop offset=".5" stop-color="#2e2c28"/><stop offset="1" stop-color="#1d1c19"/></linearGradient>' +
@@ -125,6 +147,8 @@
 
       /* ---------- drawing ---------- */
       var st = getStatus(), t0 = performance.now(), last = t0, lastHdg = st.heading, bank = 0, bankV = 0, shake = 0, nextBump = 8 + Math.random() * 20;
+      var strobeAt = -10, nextStrobe = 1, strobe = 0, navI = 1, whiteoutNow = 0;
+      function sstep(a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
       light(st);
       function proj(a, r, h, altFt, cx, hy, k) {
         // relative azimuth (clockwise from the view direction) and elevation, to screen
@@ -158,6 +182,12 @@
         if (nextBump < 0 && !reduce) { shake = 1; nextBump = 15 + Math.random() * 30; }
         shake = Math.max(0, shake - dt * .7);
 
+        var ts = now / 1000;
+        // white strobe: a double flash every 1 to 2 seconds; the red or green light pulses steadily
+        if (!reduce && ts >= nextStrobe) { strobeAt = ts; nextStrobe = ts + 1 + Math.random(); }
+        var sd = ts - strobeAt;
+        strobe = reduce ? 0 : Math.exp(-Math.pow((sd - .02) / .028, 2)) + .85 * Math.exp(-Math.pow((sd - .16) / .028, 2));
+        navI = reduce ? 1 : .2 + .8 * sstep(-.25, .25, Math.sin(ts * Math.PI * 2 * .9));
         var k = W / FOV, cx = W / 2;
         var dip = Math.sqrt(Math.max(alt, 0) / 3.28) * .0321;   // horizon dip in degrees
         var pitch = PITCH[st.phase] != null ? PITCH[st.phase] : 2;
@@ -184,12 +214,26 @@
             var z = s.m > .85 ? 2.4 : s.m > .6 ? 1.7 : 1.2;
             g.fillRect(x, y, z, z);
           });
-          var maz = wrap180(sun.az + 180 - viewAz), mel = Math.max(8, -sun.el * .7);
-          var mx = cx + maz * k, my = hy - mel * k;
-          var mg = g.createRadialGradient(mx, my, 0, mx, my, 40);
-          mg.addColorStop(0, "rgba(230,236,255,.35)"); mg.addColorStop(1, "rgba(230,236,255,0)");
-          g.fillStyle = mg; g.fillRect(mx - 40, my - 40, 80, 80);
-          g.fillStyle = "#e8ebf2"; g.beginPath(); g.arc(mx, my, 7, 0, Math.PI * 2); g.fill();
+        }
+        // the moon at its real position, with its phase turned toward the sun
+        if (moon.el > -1) {
+          var mx = cx + wrap180(moon.az - viewAz) * k, my = hy - moon.el * k, mr = Math.max(9, .85 * k), fr = moon.fraction;
+          var vis = 1 - dayness * .75;
+          var halo = g.createRadialGradient(mx, my, 0, mx, my, mr * 7);
+          halo.addColorStop(0, "rgba(210,222,255," + (.32 * fr * vis).toFixed(3) + ")"); halo.addColorStop(1, "rgba(210,222,255,0)");
+          g.fillStyle = halo; g.fillRect(mx - mr * 7, my - mr * 7, mr * 14, mr * 14);
+          var sxs = cx + wrap180(sun.az - viewAz) * k, sys = hy - sun.el * k;
+          g.save();
+          g.translate(mx, my); g.rotate(Math.atan2(sys - my, sxs - mx));
+          g.fillStyle = "rgba(170,182,210," + (.16 * vis).toFixed(3) + ")";   // earthshine on the dark part
+          g.beginPath(); g.arc(0, 0, mr, 0, Math.PI * 2); g.fill();
+          g.fillStyle = "rgba(238,240,246," + vis.toFixed(3) + ")";
+          g.beginPath(); g.arc(0, 0, mr, -Math.PI / 2, Math.PI / 2);
+          var rx = mr * Math.abs(1 - 2 * fr);
+          if (fr >= .5) g.ellipse(0, 0, Math.max(.01, rx), mr, 0, Math.PI / 2, Math.PI * 1.5, false);
+          else g.ellipse(0, 0, Math.max(.01, rx), mr, 0, Math.PI / 2, -Math.PI / 2, true);
+          g.fill();
+          g.restore();
         }
         // the sun and its glow
         if (sun.el > -6) {
@@ -217,6 +261,27 @@
             g.fillRect(p.x - sz, p.y, sz * 2, Math.max(1, sz * .25));
           }
         });
+        // moon glitter on open water
+        if (overWater && moonK > .04 && alt > 2000) {
+          var gx = cx + wrap180(moon.az - viewAz) * k;
+          if (Math.abs(gx - cx) < W * .7) {
+            var col2 = g.createLinearGradient(0, hy, 0, hy + 22 * k);
+            col2.addColorStop(0, "rgba(210,222,255," + (.14 * moonK).toFixed(3) + ")"); col2.addColorStop(1, "rgba(210,222,255,0)");
+            g.fillStyle = col2;
+            // a soft column: several narrowing layers instead of one hard wedge
+            for (var gl2 = 0; gl2 < 4; gl2++) {
+              var wtop = (.2 + gl2 * .25) * k, wbot = (2 + gl2 * 2.2) * k;
+              g.beginPath(); g.moveTo(gx - wtop, hy); g.lineTo(gx + wtop, hy); g.lineTo(gx + wbot, hy + 22 * k); g.lineTo(gx - wbot, hy + 22 * k); g.closePath(); g.fill();
+            }
+            var gr2 = SF.rng(7), nG = q === "low" ? 40 : 110;
+            for (var gi = 0; gi < nG; gi++) {
+              var e = .2 + Math.pow(gr2(), 1.6) * 22, wd = (.35 + e * .22) * k, x2 = gx + (gr2() - .5) * 2 * wd, y2 = hy + e * k;
+              var tw = .5 + .5 * Math.sin(ts * (5 + gr2() * 9) + gi);
+              g.fillStyle = "rgba(235,240,255," + (moonK * tw * (1 - e / 24)).toFixed(3) + ")";
+              g.fillRect(x2, y2, 1 + (e > 8 ? 1 : 0), 1);
+            }
+          }
+        }
         // cirrus and cumulus, far to near
         var list = [];
         cirrus.forEach(function (o) { list.push({ o: o, p: proj(o.a, o.r, o.h, alt, cx, hy, k), img: streaks[o.v] }); });
@@ -237,10 +302,35 @@
         });
         g.globalAlpha = 1;
         g.restore();
-        // inside a cloud the view greys out; the wing, a few metres away, stays faintly visible
-        if (whiteout > 0) { g.fillStyle = SF.sky.css(P.cloud, (whiteout * .8).toFixed(2)); g.fillRect(0, 0, W, H); }
-        drawWing(cx, k, now / 1000, alt, st.heading);
-        if (whiteout > 0) { g.fillStyle = SF.sky.css(P.cloud, (whiteout * .35).toFixed(2)); g.fillRect(0, 0, W, H); }
+        // inside a cloud the view greys and dims; the wing, a few metres away, stays faintly visible
+        whiteoutNow = whiteout;
+        var fog = SF.sky.mix(P.cloud, [92, 98, 110], .35);
+        if (whiteout > 0) { g.fillStyle = SF.sky.css(fog, (whiteout * .82).toFixed(2)); g.fillRect(0, 0, W, H); }
+        var wingInfo = drawWing(cx, k, ts, alt, st.heading);
+        if (whiteout > 0) { g.fillStyle = SF.sky.css(fog, (whiteout * .35).toFixed(2)); g.fillRect(0, 0, W, H); }
+        // the strobe lights the wing and the cloud around the tip
+        if (strobe > .01) {
+          var night2 = 1 - dayness, R = W * .3, sx2 = wingInfo.strobe[0], sy2 = wingInfo.strobe[1];
+          g.save(); g.globalCompositeOperation = "lighter";
+          var fl = g.createRadialGradient(sx2, sy2, 0, sx2, sy2, R);
+          fl.addColorStop(0, "rgba(255,255,255," + Math.min(1, strobe * (.45 + .5 * night2)).toFixed(3) + ")");
+          fl.addColorStop(.12, "rgba(225,232,255," + (strobe * (.12 + .3 * night2) * (1 + whiteout)).toFixed(3) + ")");
+          fl.addColorStop(1, "rgba(225,232,255,0)");
+          g.fillStyle = fl; g.fillRect(sx2 - R, sy2 - R, R * 2, R * 2);
+          g.restore();
+        }
+        // a glint where the sun catches the wing
+        if (wingInfo.glint > .35) {
+          var gl = wingInfo.glintAt, gs = 18 + wingInfo.glint * 40;
+          g.save(); g.globalCompositeOperation = "lighter"; g.translate(gl[0], gl[1]);
+          var gg2 = g.createRadialGradient(0, 0, 0, 0, 0, gs);
+          gg2.addColorStop(0, "rgba(255,250,235," + Math.min(.9, wingInfo.glint).toFixed(3) + ")"); gg2.addColorStop(1, "rgba(255,250,235,0)");
+          g.fillStyle = gg2; g.fillRect(-gs, -gs, gs * 2, gs * 2);
+          g.fillStyle = "rgba(255,255,255," + Math.min(.8, wingInfo.glint * .8).toFixed(3) + ")";
+          g.fillRect(-gs * 1.6, -.6, gs * 3.2, 1.2); g.fillRect(-.6, -gs * .9, 1.2, gs * 1.8);
+          g.restore();
+        }
+        drawGlow(shake);
         if (now % 1000 < 40 || !read.textContent || read.textContent === "--") read.textContent = Math.round(alt).toLocaleString() + " FT · SUN " + Math.round(sun.el) + "° · " + sunTime(st.pos);
       }
       function holdRate(s) {
@@ -266,14 +356,26 @@
         return vnorm([Math.cos(e) * Math.cos(rel), -dir * Math.cos(e) * Math.sin(rel), Math.sin(e)]);
       }
       // colour of a surface: sky ambient, direct sun, and a specular glint toward the eye
+      var MOONC = [175, 192, 235];
       function lit(base, n, at, L) {
         var amb = .2 + .38 * P.hemiI, sunK = sun.el > -2 ? clamp((sun.el + 2) / 6, 0, 1) * P.sunI * .38 : 0;
-        var diff = Math.max(0, vdot(n, L.sun)) * sunK;
+        var diff = Math.max(0, vdot(n, L.sun)) * sunK, dm = Math.max(0, vdot(n, L.moon)) * moonK * .55;
         // glossy paint also picks up the colour of the sky above it
-        var c = [0, 1, 2].map(function (i) { return Math.min(242, base[i] * (P.sky[i] / 255 * amb + P.sun[i] / 255 * diff) + P.horizon[i] * .12 * Math.max(0, n[2])); });
-        var v = vnorm([-at[0], -at[1], -at[2]]), hv = vnorm([L.sun[0] + v[0], L.sun[1] + v[1], L.sun[2] + v[2]]);
+        var c = [0, 1, 2].map(function (i) { return Math.min(242, base[i] * (P.sky[i] / 255 * amb + P.sun[i] / 255 * diff + MOONC[i] / 255 * dm) + P.horizon[i] * .12 * Math.max(0, n[2])); });
+        var v = vnorm([-at[0], -at[1], -at[2]]);
+        var hv = vnorm([L.sun[0] + v[0], L.sun[1] + v[1], L.sun[2] + v[2]]), hm = vnorm([L.moon[0] + v[0], L.moon[1] + v[1], L.moon[2] + v[2]]);
         var spec = Math.pow(Math.max(0, vdot(n, hv)), 70) * sunK * 1.6;
-        return { c: c, spec: spec };
+        var sheen = Math.pow(Math.max(0, vdot(n, hm)), 24) * moonK * .9;
+        return { c: c, spec: spec, sheen: sheen };
+      }
+      // shadows of passing cloud sliding across the wing on cloudy stretches of daylight
+      function cloudShadow(ts2, x, y) {
+        if (sun.el < 3) return 0;
+        var cover = clamp(Math.sin(ts2 * .05) * 1.6 - .2, 0, 1);
+        if (!cover) return 0;
+        var u2 = ts2 * 9 + x - y * .45;
+        var v2 = Math.sin(u2 * .19) + .8 * Math.sin(u2 * .071 + 1.7) + .6 * Math.sin(u2 * .033 + 4);
+        return sstep(.5, 1.4, v2) * cover;
       }
       function rgb(c, a) { return "rgba(" + Math.min(255, c[0] | 0) + "," + Math.min(255, c[1] | 0) + "," + Math.min(255, c[2] | 0) + "," + (a == null ? 1 : a) + ")"; }
 
@@ -283,7 +385,7 @@
         // in flight the wing bends up under load; a bump makes it flex
         var bend = alt > 200 ? .55 : 0, flex = shake * .45 * Math.sin(ts * 13);
         function pt(s, f, hz) { return [s.le - f * s.c, s.y, s.z + hz * s.t + (bend + flex) * s.u * s.u]; }
-        var L = { sun: lightVec(sun.az, sun.el, heading) };
+        var L = { sun: lightVec(sun.az, sun.el, heading), moon: lightVec(moon.az, moon.el, heading) }, glint = 0, glintAt = null;
         function poly(pts, fill) { g.beginPath(); pts.forEach(function (p, n2) { var q2 = sp(p); if (n2) g.lineTo(q2[0], q2[1]); else g.moveTo(q2[0], q2[1]); }); g.closePath(); g.fillStyle = fill; g.fill(); }
         function line(a, b, style, w) { var p = sp(a), q2 = sp(b); g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q2[0], q2[1]); g.strokeStyle = style; g.lineWidth = w; g.stroke(); }
         g.save();
@@ -301,11 +403,16 @@
           skin.addColorStop(0, rgb(s1.c)); skin.addColorStop(1, rgb([s1.c[0] * .8, s1.c[1] * .8, s1.c[2] * .82]));
           poly([p1, p2, p3, p4], skin);
           if (s1.spec > .02) poly([p1, p2, p3, p4], "rgba(255,250,240," + Math.min(.85, s1.spec).toFixed(3) + ")");
+          if (s1.sheen > .02) poly([p1, p2, p3, p4], "rgba(190,205,245," + Math.min(.5, s1.sheen).toFixed(3) + ")");
+          if (s1.spec > glint) { glint = s1.spec; glintAt = sp(ctr); }
+          var cs = cloudShadow(ts, ctr[0], ctr[1]);
+          if (cs > .02) poly([p1, p2, p3, p4], "rgba(10,14,24," + (cs * .32).toFixed(3) + ")");
           // leading edge: the curved nose catches the light as a bright band
           var e1 = pt(a, 0, 0), e2 = pt(b, 0, 0), nL = vnorm([1, 0, .9]), s2 = lit(PAINT, nL, e1, L);
           var hi = [s2.c[0] * 1.18 + 26, s2.c[1] * 1.18 + 26, s2.c[2] * 1.18 + 28];
           poly([e1, e2, p2, p1], rgb(hi));
           if (s2.spec > .02) poly([e1, e2, p2, p1], "rgba(255,255,255," + Math.min(.9, s2.spec * 1.4).toFixed(3) + ")");
+          if (s2.sheen > .02) poly([e1, e2, p2, p1], "rgba(205,218,255," + Math.min(.6, s2.sheen * 1.3).toFixed(3) + ")");
           // panel lines: spoilers and flaps inboard, the aileron outboard, a seam at each rib station
           var shade = "rgba(0,0,0,.28)", w1 = Math.max(.6, 1.6 - a.u);
           line(pt(a, .55, .32), pt(b, .55, .32), shade, w1 * .8);
@@ -325,12 +432,41 @@
         if (sw.spec > .02) poly([b1, b2, t2, t1], "rgba(255,255,255," + Math.min(.8, sw.spec).toFixed(3) + ")");
         line(b1, t1, "rgba(255,255,255,.35)", 1.2);
         // navigation light: red on the left wing, green on the right
-        var nav = sp(pt(tip, .02, .3)), col = dir > 0 ? "255,59,48" : "56,255,122", lr = 26;
-        var lg = g.createRadialGradient(nav[0], nav[1], 0, nav[0], nav[1], lr);
-        lg.addColorStop(0, "rgba(" + col + "," + (.35 + .55 * P.lights).toFixed(2) + ")"); lg.addColorStop(1, "rgba(" + col + ",0)");
+        var nav = sp(pt(tip, .02, .3)), col = dir > 0 ? "255,59,48" : "56,255,122", lr = 26, lg;
+        lr = 18 + 18 * navI;
+        lg = g.createRadialGradient(nav[0], nav[1], 0, nav[0], nav[1], lr);
+        lg.addColorStop(0, "rgba(" + col + "," + ((.35 + .6 * (1 - dayness * .6)) * navI).toFixed(2) + ")"); lg.addColorStop(1, "rgba(" + col + ",0)");
         g.fillStyle = lg; g.fillRect(nav[0] - lr, nav[1] - lr, lr * 2, lr * 2);
-        g.fillStyle = "rgb(" + col + ")"; g.beginPath(); g.arc(nav[0], nav[1], 2, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "rgba(" + col + "," + (.4 + .6 * navI).toFixed(2) + ")"; g.beginPath(); g.arc(nav[0], nav[1], 2, 0, Math.PI * 2); g.fill();
+        var sb = sp(pt(tip, .96, .2));
+        if (strobe > .01) { g.fillStyle = "rgba(255,255,255," + Math.min(1, strobe).toFixed(2) + ")"; g.beginPath(); g.arc(sb[0], sb[1], 2.5, 0, Math.PI * 2); g.fill(); }
         g.restore();
+        return { strobe: sb, glint: glint, glintAt: glintAt || nav };
+      }
+
+      /* ---------- light on the cabin wall: each window glows with the colour of the sky outside ---------- */
+      function drawGlow(sh) {
+        if (!glowMask) return;
+        var skyAvg = SF.sky.mix(P.horizon, P.zenith, .45);
+        var lum = (skyAvg[0] * .3 + skyAvg[1] * .59 + skyAvg[2] * .11) / 255;
+        var warm = clamp(1 - Math.abs(sun.el - 2) / 9, 0, 1);
+        var col = SF.sky.mix(SF.sky.mix(skyAvg, [255, 255, 255], .4 * dayness * (1 - warm)), [255, 150, 70], warm * .75);
+        var I = .1 + lum * .8;
+        var nightness = clamp((-sun.el - 2) / 8, 0, 1);
+        if (nightness > 0) { col = SF.sky.mix(col, [96, 132, 235], nightness * Math.min(1, moonK * 1.2 + .55)); I += moonK * .45 * nightness; }
+        if (strobe > .01) { col = SF.sky.mix(col, [255, 255, 255], Math.min(1, strobe * .8)); I += strobe * .5 * (1 - dayness * .6); }
+        I *= 1 - whiteoutNow * .45;
+        if (sh > .02) I *= 1 - sh * .3 * Math.random();   // a flicker in a bump
+        gg.setTransform(1, 0, 0, 1, 0, 0);
+        gg.clearRect(0, 0, glowCv.width, glowCv.height);
+        gg.globalCompositeOperation = "source-over";
+        gg.globalAlpha = clamp(I, 0, 1);
+        gg.drawImage(glowMask, 0, 0);
+        gg.globalAlpha = 1;
+        gg.globalCompositeOperation = "source-in";
+        gg.fillStyle = SF.sky.css(col);
+        gg.fillRect(0, 0, glowCv.width, glowCv.height);
+        gg.globalCompositeOperation = "source-over";
       }
       function sunTime(pos) {
         var d = SF.devSunHour != null ? new Date(SF.devSunHour * 3600000) : new Date(Date.now() + pos.lon / 15 * 3600000);

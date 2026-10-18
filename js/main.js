@@ -68,7 +68,9 @@
     var modeFor = { globe: "globe", satellite: "satellite", hold: "classic", flight: "classic", window: "classic", whold: "classic" };
     if (modeFor[kind] && !SF.store.state.activeFlight) {
       SF.store.update(function (s) {
-        var af = SF.flight.create({ from: "SIN", to: "HKG", minutes: 240, tagId: "coding", seat: "4A", task: "Refactor the parser" });
+        // dev: &route=MNL-HKG picks the demo route
+        var rt = (new URLSearchParams(location.search).get("route") || "SIN-HKG").split("-");
+        var af = SF.flight.create({ from: rt[0], to: rt[1], minutes: 240, tagId: "coding", seat: "4A", task: "Refactor the parser" });
         af.timeScale = 1; af.started = true; af.startAt = now - 96 * 60000;
         af.milestones = { pushback: 1, takeoff: 1, cruise: 1 };
         if (kind === "hold" || kind === "whold") {

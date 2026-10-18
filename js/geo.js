@@ -143,7 +143,47 @@
   // Racetrack size that stays visible at route scale: 6% of the route, 40 to 260 km.
   function holdSizeKm(routeKm) { return Math.max(40, Math.min(260, routeKm * 0.06)); }
 
+  // Moon (low precision, about a degree): elevation and azimuth at lat/lon, the illuminated
+  // fraction and whether it is waxing.
+  function moon(date, lat, lon) {
+    var n = date.getTime() / 86400000 + 2440587.5 - 2451545.0;
+    var L = (218.316 + 13.176396 * n) * D2R, M = (134.963 + 13.064993 * n) * D2R, F = (93.272 + 13.229350 * n) * D2R;
+    var lam = L + 6.289 * D2R * Math.sin(M), bet = 5.128 * D2R * Math.sin(F), eps = 23.439 * D2R;
+    var ra = Math.atan2(Math.sin(lam) * Math.cos(eps) - Math.tan(bet) * Math.sin(eps), Math.cos(lam));
+    var dec = Math.asin(Math.sin(bet) * Math.cos(eps) + Math.cos(bet) * Math.sin(eps) * Math.sin(lam));
+    var gmst = (18.697374558 + 24.06570982441908 * n) % 24;
+    var subLon = ((ra * R2D - gmst * 15) % 360 + 540) % 360 - 180, subLat = dec * R2D;
+    var ha = (lon - subLon) * D2R;
+    var el = Math.asin(Math.sin(lat * D2R) * Math.sin(dec) + Math.cos(lat * D2R) * Math.cos(dec) * Math.cos(ha)) * R2D;
+    // the sun's ecliptic longitude gives the phase
+    var g = ((357.528 + 0.9856003 * n) % 360) * D2R;
+    var sunLam = ((280.46 + 0.9856474 * n) % 360) * D2R + (1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * D2R;
+    var elong = Math.acos(Math.cos(bet) * Math.cos(lam - sunLam));
+    var waxing = ((lam - sunLam) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) < Math.PI;
+    return { el: el, az: bearing({ lat: lat, lon: lon }, { lat: subLat, lon: subLon }), fraction: (1 - Math.cos(elong)) / 2, waxing: waxing };
+  }
+
+  // Land or water at a point, from the Natural Earth outlines painted once onto a small canvas.
+  var landData = null;
+  function isLand(lat, lon) {
+    if (!landData) {
+      if (!window.WORLD_LAND) return true;
+      var c = document.createElement("canvas"); c.width = 720; c.height = 360;
+      var g = c.getContext("2d");
+      g.fillStyle = "#fff";
+      window.WORLD_LAND.forEach(function (poly) {
+        g.beginPath();
+        poly.forEach(function (pt, k) { var x = (pt[0] + 180) * 2, y = (90 - pt[1]) * 2; if (k) g.lineTo(x, y); else g.moveTo(x, y); });
+        g.closePath(); g.fill();
+      });
+      landData = g.getImageData(0, 0, 720, 360).data;
+    }
+    var x = Math.min(719, Math.max(0, Math.floor((lon + 180) * 2))), y = Math.min(359, Math.max(0, Math.floor((90 - lat) * 2)));
+    return landData[(y * 720 + x) * 4 + 3] > 64;
+  }
+
   SF.geo = {
+    moon: moon, isLand: isLand,
     holdPos: holdPos, holdLoop: holdLoop, holdSizeKm: holdSizeKm, offsetKm: offsetKm,
     distanceKm: distanceKm, bearing: bearing, interpolate: interpolate, arcPoints: arcPoints,
     realisticMinutes: realisticMinutes, sun: sun, nightPolygon: nightPolygon,
