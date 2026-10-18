@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- SkyFocus tray icon: the focus ring and plane, simplified for 16 to 32 pixels. -->
+  <path d="M 43.2 16.4 A 20 20 0 1 0 51.3 27.8" fill="none" stroke="#ffc400" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="32" cy="33" r="4" fill="#ffc400"/>
+  <g transform="translate(50.5 19.5) rotate(42) scale(.95) translate(-12 -12)">
+    <path fill="#ffffff" d="M12 2c.9 0 1.5 1 1.5 2.2V9l7.5 4.5v2L13.5 13v4.6l2.5 1.9V21l-4-1.2L8 21v-1.5l2.5-1.9V13L3 15.5v-2L10.5 9V4.2C10.5 3 11.1 2 12 2z"/>
+  </g>
+</svg>

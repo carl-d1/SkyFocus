@@ -1,0 +1,380 @@
+/* SkyFocus desktop: the Electron main process.
+   Serves the web app from the app folder over a private skyfocus:// scheme (so it has a stable origin,
+   its own storage and a strict Content-Security-Policy), and adds what a browser cannot: a frameless
+   window with embedded controls, the always-on-top mini pill, a tray icon, native notifications,
+   taskbar progress, focus tracking for airplane mode and launch at startup. */
+"use strict";
+const { app, BrowserWindow, ipcMain, protocol, net, shell, Tray, Menu, Notification, nativeImage, screen, dialog } = require("electron");
+const path = require("path");
+const fs = require("fs");
+const { pathToFileURL } = require("url");
+
+const ROOT = path.join(__dirname, "..");
+const SCHEME = "skyfocus";
+const ORIGIN = SCHEME + "://app";
+const TILES = "https://server.arcgisonline.com";
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: " + TILES,
+  "font-src 'self' data:",
+  "connect-src 'self' " + TILES,
+  "media-src 'self' data: blob:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+  "frame-ancestors 'none'"
+].join("; ");
+const ICON = path.join(__dirname, "icons", "icon.png");
+const PILL = { w: 336, h: 80, wide: 464 };   // window sizes around the 320 x 64 pill (8 px margin for the glow)
+const TEST = !!process.env.SKYFOCUS_SHOT;   // automated capture run (see the test hooks below)
+
+app.setAppUserModelId("au.com.hyetech.skyfocus");
+if (process.env.SKYFOCUS_USERDATA) app.setPath("userData", process.env.SKYFOCUS_USERDATA);   // isolated test profiles
+protocol.registerSchemesAsPrivileged([{ scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+
+/* ---------- small persisted state: window bounds, pill position, desktop preferences ---------- */
+const STATE_FILE = () => path.join(app.getPath("userData"), "desktop-state.json");
+let state = { window: null, pill: null, prefs: { pillOnMinimise: true, pillClickThrough: false, launchAtStartup: false }, closeHintShown: false, firstRunDone: false };
+function loadState() {
+  try { state = Object.assign(state, JSON.parse(fs.readFileSync(STATE_FILE(), "utf8"))); state.prefs = Object.assign({ pillOnMinimise: true, pillClickThrough: false, launchAtStartup: false }, state.prefs); } catch (e) { /* first launch */ }
+}
+let saveTimer = null;
+function saveState() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { fs.writeFileSync(STATE_FILE(), JSON.stringify(state, null, 2)); } catch (e) { /* read-only disk */ } }, 300);
+}
+
+let win = null, pillWin = null, tray = null, quitting = false;
+let snap = { kind: "idle" };   // the latest pill snapshot from the app
+let appFocused = true;
+
+/* ---------- single instance ---------- */
+if (!app.requestSingleInstanceLock()) { app.quit(); }
+else app.on("second-instance", () => showMain());
+
+/* ---------- serving the app ---------- */
+function serve() {
+  protocol.handle(SCHEME, async (req) => {
+    const u = new URL(req.url);
+    let rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || "index.html";
+    const file = path.normalize(path.join(ROOT, rel));
+    if (!file.startsWith(ROOT)) return new Response("Not found", { status: 404 });
+    try {
+      const res = await net.fetch(pathToFileURL(file).toString());
+      if (!res.ok) return res;
+      const headers = new Headers(res.headers);
+      if (/\.html?$/i.test(file)) headers.set("Content-Security-Policy", CSP);
+      return new Response(res.body, { status: 200, headers });
+    } catch (e) {
+      return new Response("Not found", { status: 404 });
+    }
+  });
+}
+
+/* ---------- guards shared by both windows ---------- */
+function guard(wc) {
+  wc.on("will-navigate", (e, target) => {
+    if (!target.startsWith(ORIGIN)) { e.preventDefault(); if (/^https?:/i.test(target)) shell.openExternal(target); }
+  });
+  wc.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) shell.openExternal(url); return { action: "deny" }; });
+  wc.on("will-attach-webview", (e) => e.preventDefault());
+  wc.session.setPermissionRequestHandler((w, perm, cb) => cb(perm === "notifications" || perm === "fullscreen"));
+}
+function prefsFor(preload) {
+  return { preload: path.join(__dirname, preload), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, autoplayPolicy: "no-user-gesture-required", backgroundThrottling: false };
+}
+
+/* ---------- main window ---------- */
+function createMain() {
+  const ws = state.window;
+  win = new BrowserWindow({
+    x: ws && ws.bounds ? ws.bounds.x : undefined, y: ws && ws.bounds ? ws.bounds.y : undefined,
+    width: ws && ws.bounds ? ws.bounds.width : 1366, height: ws && ws.bounds ? ws.bounds.height : 800,
+    minWidth: 1100, minHeight: 700, frame: false, show: false, backgroundColor: "#0b0c0f",
+    title: "SkyFocus", icon: ICON, webPreferences: prefsFor("preload.js")
+  });
+  if (TEST) {
+    // automated captures run off screen and never take focus
+    const sz = (process.env.SKYFOCUS_SIZE || "1366x768").split("x").map(Number);
+    win.setBounds({ x: -6000, y: 0, width: sz[0], height: sz[1] });
+    win.once("ready-to-show", () => win.showInactive());
+  } else {
+    if (!ws || ws.maximized) win.maximize();   // first launch opens maximised
+    win.once("ready-to-show", () => win.show());
+  }
+  guard(win.webContents);
+  win.loadURL(ORIGIN + "/index.html" + (process.env.SKYFOCUS_QUERY || ""));
+
+  const sendState = () => { if (win && !win.isDestroyed()) win.webContents.send("win:state", { maximized: win.isMaximized(), fullscreen: win.isFullScreen() }); };
+  ["maximize", "unmaximize", "enter-full-screen", "leave-full-screen", "restore"].forEach((ev) => win.on(ev, () => { sendState(); rememberWindow(); }));
+  ["resize", "move"].forEach((ev) => win.on(ev, rememberWindow));
+  win.webContents.on("did-finish-load", sendState);
+
+  win.on("minimize", () => { if (busy() && state.prefs.pillOnMinimise) openPill(); });
+  win.on("close", (e) => {
+    if (quitting || !busy()) return;
+    // during a flight or layover, closing keeps SkyFocus running in the tray
+    e.preventDefault();
+    win.hide();
+    if (state.prefs.pillOnMinimise) openPill();
+    if (!state.closeHintShown) {
+      state.closeHintShown = true; saveState();
+      notify("SkyFocus is still flying", "The flight continues in the tray. Quit from the tray menu to stop it.");
+    }
+  });
+  win.on("closed", () => { win = null; });
+  win.on("blur", () => setTimeout(checkFocus, 80));
+  win.on("focus", () => setFocus(true));
+
+  // F11 toggles fullscreen; Esc leaves it (the app still sees Esc)
+  win.webContents.on("before-input-event", (e, input) => {
+    if (input.type !== "keyDown") return;
+    if (input.key === "F11") { e.preventDefault(); win.setFullScreen(!win.isFullScreen()); }
+    else if (input.key === "Escape" && win.isFullScreen()) win.setFullScreen(false);
+  });
+}
+let rememberTimer = null;
+function rememberWindow() {
+  clearTimeout(rememberTimer);
+  rememberTimer = setTimeout(() => {
+    if (!win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
+    state.window = { bounds: win.getNormalBounds(), maximized: win.isMaximized() };
+    saveState();
+  }, 400);
+}
+function showMain() {
+  if (!win) createMain();
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+function busy() { return snap.kind === "flight" || snap.kind === "layover"; }
+
+/* ---------- focus: leaving SkyFocus for another app (the pill does not count) ---------- */
+function checkFocus() {
+  const f = BrowserWindow.getFocusedWindow();
+  setFocus(!!f && (f === win || f === pillWin));
+}
+function setFocus(v) {
+  if (v === appFocused) return;
+  appFocused = v;
+  if (win && !win.isDestroyed()) win.webContents.send("app:focus", v);
+}
+
+/* ---------- the mini pill ---------- */
+function workAreaFor(b) { return screen.getDisplayMatching(b).workArea; }
+function defaultPillPos() {
+  const wa = screen.getPrimaryDisplay().workArea;
+  return { x: wa.x + wa.width - PILL.w - 16, y: wa.y + wa.height - PILL.h - 16 };
+}
+function openPill() {
+  if (pillWin) { if (!pillWin.isVisible()) pillWin.showInactive(); return; }
+  let pos = TEST ? { x: -5000, y: 0 } : state.pill || defaultPillPos();
+  const wa = workAreaFor({ x: pos.x, y: pos.y, width: PILL.w, height: PILL.h });
+  if (!TEST) pos = { x: Math.min(Math.max(pos.x, wa.x), wa.x + wa.width - PILL.w), y: Math.min(Math.max(pos.y, wa.y), wa.y + wa.height - PILL.h) };
+  pillWin = new BrowserWindow({
+    x: pos.x, y: pos.y, width: PILL.w, height: PILL.h, frame: false, transparent: true, resizable: false, maximizable: false,
+    minimizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, show: false,
+    backgroundColor: "#00000000", title: "SkyFocus pill", icon: ICON, webPreferences: prefsFor("pill-preload.js")
+  });
+  pillWin.setAlwaysOnTop(true, "floating");
+  pillWin.setVisibleOnAllWorkspaces(true);
+  guard(pillWin.webContents);
+  pillWin.loadURL(ORIGIN + "/desktop/pill.html");
+  pillWin.once("ready-to-show", () => { pillWin.showInactive(); applyClickThrough(); pushPill(); });
+  pillWin.on("blur", () => setTimeout(checkFocus, 80));
+  pillWin.on("closed", () => { pillWin = null; });
+}
+function closePill() { if (pillWin) pillWin.close(); }
+function applyClickThrough() {
+  if (!pillWin) return;
+  if (state.prefs.pillClickThrough) pillWin.setIgnoreMouseEvents(true, { forward: true });
+  else pillWin.setIgnoreMouseEvents(false);
+  pillWin.webContents.send("pill:prefs", state.prefs);
+}
+function pushPill() { if (pillWin && !pillWin.isDestroyed()) pillWin.webContents.send("pill:state", snap); }
+let pillWide = false;
+function pillHover(on) {
+  if (!pillWin) return;
+  if (state.prefs.pillClickThrough) pillWin.setIgnoreMouseEvents(!on, { forward: true });
+  if (on === pillWide) return;
+  pillWide = on;
+  const b = pillWin.getBounds(), wa = workAreaFor(b);
+  const growLeft = b.x + PILL.wide > wa.x + wa.width;   // near the right edge, open toward the left
+  const w = on ? PILL.wide : PILL.w;
+  pillWin.setBounds({ x: growLeft ? b.x + b.width - w : b.x, y: b.y, width: w, height: PILL.h });
+  pillWin.webContents.send("pill:side", growLeft ? "left" : "right");
+}
+let dragFrom = null;
+function pillDrag(type, d) {
+  if (!pillWin) return;
+  if (type === "start") { dragFrom = pillWin.getBounds(); return; }
+  if (type === "move" && dragFrom) { pillWin.setPosition(Math.round(dragFrom.x + d.dx), Math.round(dragFrom.y + d.dy)); return; }
+  if (type === "end") {
+    dragFrom = null;
+    // snap to the edges and corners of the work area
+    const b = pillWin.getBounds(), wa = workAreaFor(b), M = 12, S = 40;
+    let x = b.x, y = b.y;
+    if (Math.abs(b.x - wa.x) < S) x = wa.x + M;
+    if (Math.abs(wa.x + wa.width - (b.x + b.width)) < S) x = wa.x + wa.width - b.width - M;
+    if (Math.abs(b.y - wa.y) < S) y = wa.y + M;
+    if (Math.abs(wa.y + wa.height - (b.y + b.height)) < S) y = wa.y + wa.height - b.height - M;
+    x = Math.min(Math.max(x, wa.x), wa.x + wa.width - b.width); y = Math.min(Math.max(y, wa.y), wa.y + wa.height - b.height);
+    pillWin.setPosition(x, y);
+    state.pill = { x: pillWide && b.width === PILL.wide && x + PILL.wide > wa.x + wa.width - 1 ? x + PILL.wide - PILL.w : x, y: y };
+    saveState();
+  }
+}
+
+/* ---------- notifications, tray and taskbar ---------- */
+function notify(title, body) {
+  if (!Notification.isSupported()) return;
+  const n = new Notification({ title: title, body: body, icon: ICON, silent: false });
+  n.on("click", showMain);
+  n.show();
+}
+function fmtLeft(ms) {
+  const s = Math.max(0, Math.round(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h ? h + "h " + String(m).padStart(2, "0") + "m" : String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+}
+function trayMenu() {
+  const flying = snap.kind === "flight";
+  return Menu.buildFromTemplate([
+    { label: "Show SkyFocus", click: showMain },
+    { label: "Show pill", click: openPill },
+    { type: "separator" },
+    { label: snap.holding ? "Resume" : "Hold", enabled: flying, click: () => command({ type: "hold" }) },
+    { label: "Divert", enabled: flying, click: confirmDivert },
+    { type: "separator" },
+    { label: "Quit", click: () => { quitting = true; app.quit(); } }
+  ]);
+}
+async function confirmDivert() {
+  const r = await dialog.showMessageBox(win && win.isVisible() ? win : null, {
+    type: "question", buttons: ["Divert", "Keep flying"], defaultId: 1, cancelId: 1, title: "Divert flight",
+    message: "Divert " + (snap.from || "") + " to " + (snap.to || "") + "?", detail: "The flight is logged as diverted with the distance flown so far. No stamp is issued."
+  });
+  if (r.response === 0) command({ type: "divert" });
+}
+function createTray() {
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, "icons", "tray.png")));
+  tray.setToolTip("SkyFocus");
+  tray.setContextMenu(trayMenu());
+  tray.on("click", showMain);
+}
+let lastTrayKey = "";
+function updateShell() {
+  // tray tooltip and menu
+  let tip = "SkyFocus";
+  if (snap.kind === "flight") tip = snap.from + " to " + snap.to + " · " + fmtLeft(snap.remainingMs) + " left" + (snap.holding ? " · holding" : "");
+  else if (snap.kind === "layover") tip = "Layover at " + snap.at + " · " + fmtLeft(snap.remainingMs) + " left";
+  if (tray) {
+    tray.setToolTip(tip);
+    const key = snap.kind + (snap.holding ? "h" : "");
+    if (key !== lastTrayKey) { lastTrayKey = key; tray.setContextMenu(trayMenu()); }
+  }
+  // taskbar progress, paused while holding
+  if (win && !win.isDestroyed()) {
+    if (snap.kind === "flight") win.setProgressBar(Math.max(.01, snap.progress), { mode: snap.holding ? "paused" : "normal" });
+    else if (snap.kind === "layover") win.setProgressBar(Math.max(.01, snap.progress), { mode: "normal" });
+    else win.setProgressBar(-1);
+  }
+}
+function command(c) {
+  if (c.type === "expand") { showMain(); return; }
+  if (c.type === "closePill") { closePill(); return; }
+  if (win && !win.isDestroyed()) win.webContents.send("app:command", c);
+  if (c.type === "book") showMain();
+}
+
+/* ---------- IPC ---------- */
+function fromMain(e) { return win && e.sender === win.webContents; }
+function fromPill(e) { return pillWin && e.sender === pillWin.webContents; }
+ipcMain.on("win:minimize", (e) => { if (fromMain(e)) win.minimize(); });
+ipcMain.on("win:toggleMaximize", (e) => { if (fromMain(e)) win.isMaximized() ? win.unmaximize() : win.maximize(); });
+ipcMain.on("win:toggleFullscreen", (e) => { if (fromMain(e)) win.setFullScreen(!win.isFullScreen()); });
+ipcMain.on("win:close", (e) => { if (fromMain(e)) win.close(); });
+ipcMain.on("pill:open", (e) => { if (fromMain(e)) openPill(); });
+ipcMain.on("pill:close", (e) => { if (fromMain(e) || fromPill(e)) closePill(); });
+ipcMain.on("app:state", (e, s) => {
+  if (!fromMain(e) || !s || typeof s !== "object") return;
+  snap = s;
+  pushPill();
+  updateShell();
+});
+ipcMain.on("app:event", (e, ev) => {
+  if (!fromMain(e) || !ev) return;
+  if (ev.type === "landed" && win && !win.isFocused()) win.flashFrame(true);
+  if (ev.notify && ev.title) notify(String(ev.title).slice(0, 120), String(ev.body || "").slice(0, 240));
+  if (pillWin) pillWin.webContents.send("pill:event", ev);
+});
+ipcMain.on("pill:command", (e, c) => { if (fromPill(e) && c && typeof c.type === "string") command(c); });
+ipcMain.on("pill:hover", (e, on) => { if (fromPill(e)) pillHover(!!on); });
+ipcMain.on("pill:drag", (e, type, d) => { if (fromPill(e)) pillDrag(type, d || {}); });
+ipcMain.on("pill:ready", (e) => { if (fromPill(e)) { pushPill(); applyClickThrough(); } });
+ipcMain.handle("prefs:get", (e) => (fromMain(e) || fromPill(e)) ? Object.assign({ version: app.getVersion() }, state.prefs) : null);
+ipcMain.handle("prefs:set", (e, p) => {
+  if (!fromMain(e) || !p) return null;
+  ["pillOnMinimise", "pillClickThrough", "launchAtStartup"].forEach((k) => { if (k in p) state.prefs[k] = !!p[k]; });
+  app.setLoginItemSettings({ openAtLogin: state.prefs.launchAtStartup, path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath });
+  saveState();
+  applyClickThrough();
+  return state.prefs;
+});
+ipcMain.handle("data:openFolder", (e) => { if (fromMain(e)) return shell.openPath(app.getPath("userData")); });
+ipcMain.handle("data:backup", (e, json) => {
+  if (!fromMain(e) || typeof json !== "string" || json.length > 50e6) return null;
+  const dir = path.join(app.getPath("userData"), "backups");
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, "skyfocus-backup-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".json");
+  fs.writeFileSync(file, json);
+  return file;
+});
+ipcMain.handle("app:firstRun", (e) => fromMain(e) ? !state.firstRunDone : false);
+ipcMain.on("app:firstRunDone", (e) => { if (fromMain(e)) { state.firstRunDone = true; saveState(); } });
+
+/* ---------- test hooks (environment variables only; nothing here is reachable from the page) ----------
+   SKYFOCUS_QUERY  appended to the start URL, e.g. ?dev=1&demo=window
+   SKYFOCUS_EXEC   JavaScript run in the main window after load
+   SKYFOCUS_SHOT   path for a PNG of the main window (and SKYFOCUS_SHOT.pill.png when the pill is open)
+   SKYFOCUS_LOG    path for the console log of both windows
+   SKYFOCUS_WAIT   milliseconds to wait before the capture (default 6000), then quit */
+function testHooks() {
+  const log = process.env.SKYFOCUS_LOG, NL = require("os").EOL;
+  if (log) {
+    const write = (who) => (e, level, msg, line, src) => {
+      const d = e && e.message !== undefined ? e : { level: level, message: msg, lineNumber: line, sourceId: src };
+      fs.appendFileSync(log, who + " [" + d.level + "] " + d.message + " (" + (d.sourceId || "") + ":" + (d.lineNumber || "") + ")" + NL);
+    };
+    app.on("browser-window-created", (e, w) => w.webContents.on("console-message", write(w === pillWin ? "pill" : "main")));
+    if (win) win.webContents.on("console-message", write("main"));
+  }
+  const shot = process.env.SKYFOCUS_SHOT;
+  if (!shot && !process.env.SKYFOCUS_EXEC) return;
+  win.webContents.once("did-finish-load", async () => {
+    try {
+      if (process.env.SKYFOCUS_EXEC) await win.webContents.executeJavaScript(process.env.SKYFOCUS_EXEC, true);
+    } catch (e) { if (log) fs.appendFileSync(log, "exec error " + e.message + NL); }
+    if (!shot) return;
+    setTimeout(async () => {
+      try {
+        fs.writeFileSync(shot, (await win.webContents.capturePage()).toPNG());
+        if (pillWin) fs.writeFileSync(shot.replace(/\.png$/, "") + ".pill.png", (await pillWin.webContents.capturePage()).toPNG());
+      } catch (e) { if (log) fs.appendFileSync(log, "shot error " + e.message + NL); }
+      quitting = true; app.quit();
+    }, +(process.env.SKYFOCUS_WAIT || 6000));
+  });
+}
+
+/* ---------- start ---------- */
+app.on("before-quit", () => { quitting = true; });
+app.on("window-all-closed", () => { if (quitting) app.quit(); });
+app.whenReady().then(() => {
+  loadState();
+  serve();
+  createMain();
+  createTray();
+  testHooks();
+});

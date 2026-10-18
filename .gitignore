@@ -10,3 +10,7 @@ skyfocus-backup-*.json
 
 # Local tooling
 .claude/
+
+# Desktop build
+node_modules/
+dist/

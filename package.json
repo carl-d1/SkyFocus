@@ -1,0 +1,61 @@
+{
+  "name": "skyfocus",
+  "productName": "SkyFocus",
+  "version": "1.0.0",
+  "description": "A flight-themed focus timer. Every focus session is a flight between real airports.",
+  "author": "Carlos",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "desktop/main.js",
+  "scripts": {
+    "desktop": "electron .",
+    "dist": "electron-builder --win portable nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "au.com.hyetech.skyfocus",
+    "productName": "SkyFocus",
+    "copyright": "Copyright 2026 Carlos",
+    "directories": {
+      "output": "dist",
+      "buildResources": "desktop/build"
+    },
+    "files": [
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "assets/**/*",
+      "vendor/**/*",
+      "desktop/**/*",
+      "!desktop/build/**/*",
+      "!**/*.map",
+      "!**/*.md",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "desktop/build/icon.ico",
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SkyFocus",
+      "uninstallDisplayName": "SkyFocus",
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    }
+  }
+}
