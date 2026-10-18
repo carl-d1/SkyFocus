@@ -14,34 +14,60 @@
 
   var PITCH = { Pushback: 0, Taxi: 0, Takeoff: 8, Climb: 5, Cruise: 2, Holding: 2, Descent: -1, Approach: 2, Landing: 4, Arrived: 0 };
 
-  // soft cloud puff, lit from above, in the palette's cloud colour
-  function puff(col, seed, w, h) {
+  /* ---------- cloud sprites: several shapes, lit on top and darker underneath ---------- */
+  // type: cumulus (heaped), puff (small), strato (wide rolls), alto (small cells), cirrus (streaks), veil (thin sheet)
+  var SHAPE = { cumulus: [256, 176], puff: [160, 96], strato: [384, 112], alto: [320, 96], cirrus: [384, 64], veil: [512, 64] };
+  function cloudSprite(type, seed, col) {
+    var sz = SHAPE[type], w = sz[0], h = sz[1];
     var c = document.createElement("canvas"); c.width = w; c.height = h;
     var g = c.getContext("2d"), r = SF.rng(seed);
-    var top = SF.sky.css(SF.sky.mix(col, [255, 255, 255], .25)), base = SF.sky.css(SF.sky.mix(col, [70, 78, 96], .35));
-    for (var i = 0; i < 14; i++) {
-      var x = w * (.15 + r() * .7), y = h * (.35 + r() * .4), rad = h * (.18 + r() * .22);
-      var gr = g.createRadialGradient(x, y - rad * .3, 0, x, y, rad);
-      gr.addColorStop(0, top); gr.addColorStop(.55, SF.sky.css(col)); gr.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = gr; g.globalAlpha = .8;
-      g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+    var top = SF.sky.css(SF.sky.mix(col, [255, 255, 255], .35)), mid = SF.sky.css(col), midSoft = SF.sky.css(col, .45), base = SF.sky.mix(col, [52, 60, 80], .5);
+    function blob(x, y, rad, a) {
+      var gr = g.createRadialGradient(x - rad * .15, y - rad * .45, rad * .05, x, y, rad);
+      gr.addColorStop(0, top); gr.addColorStop(.35, mid); gr.addColorStop(.72, midSoft); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.globalAlpha = a; g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
     }
-    // flat, shaded base
+    var i, n, baseY;
+    if (type === "cirrus" || type === "veil") {
+      g.lineCap = "round";
+      n = type === "veil" ? 6 : 14;
+      for (i = 0; i < n; i++) {
+        var x0 = r() * w * .3, y0 = h * (.3 + r() * .4), len = w * (.4 + r() * .55), curl = (r() - .5) * h * .6;
+        var gr2 = g.createLinearGradient(x0, 0, x0 + len, 0);
+        gr2.addColorStop(0, "rgba(0,0,0,0)"); gr2.addColorStop(.35, SF.sky.css(col, type === "veil" ? .16 : .32)); gr2.addColorStop(1, "rgba(0,0,0,0)");
+        g.strokeStyle = gr2; g.lineWidth = type === "veil" ? h * (.25 + r() * .3) : 1.5 + r() * 4;
+        g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + len * .5, y0 + curl, x0 + len, y0 - curl * .4); g.stroke();
+      }
+      return c;
+    }
+    if (type === "cumulus") {
+      baseY = h * .8; n = 30 + (r() * 14 | 0);
+      var tower = .35 + r() * .5;
+      for (i = 0; i < n; i++) {
+        var u = r(), rad = h * (.1 + r() * .14) * (1 - u * .35), x = w * (.2 + r() * .6) + (r() - .5) * w * .1 * (1 - u), y = baseY - rad * .55 - u * h * .5 * tower;
+        blob(x, y, rad, .7);
+      }
+    } else if (type === "puff") {
+      baseY = h * .78; n = 7 + (r() * 5 | 0);
+      n += 6;
+      for (i = 0; i < n; i++) { var rp = h * (.14 + r() * .16); blob(w * (.22 + r() * .56), baseY - rp * .55 - r() * h * .2, rp, .7); }
+    } else if (type === "strato") {
+      baseY = h * .78; n = 26 + (r() * 10 | 0);
+      for (i = 0; i < n; i++) { var rs = h * (.16 + r() * .18); blob(w * (.04 + r() * .92), baseY - rs * .5 - r() * h * .18, rs, .7); }
+    } else {
+      baseY = h * .8; n = 40 + (r() * 20 | 0);
+      for (i = 0; i < n; i++) { var ra = h * (.07 + r() * .08); blob(w * (.06 + r() * .88), h * (.3 + r() * .45), ra, .7); }
+    }
+    // flat base cut away and the underside darkened
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "destination-out";
+    var cut = g.createLinearGradient(0, baseY, 0, baseY + h * .08);
+    cut.addColorStop(0, "rgba(0,0,0,0)"); cut.addColorStop(1, "rgba(0,0,0,1)");
+    g.fillStyle = cut; g.fillRect(0, baseY, w, h - baseY);
     g.globalCompositeOperation = "source-atop";
-    var bg = g.createLinearGradient(0, h * .45, 0, h);
-    bg.addColorStop(0, "rgba(0,0,0,0)"); bg.addColorStop(1, base);
-    g.globalAlpha = .45; g.fillStyle = bg; g.fillRect(0, 0, w, h);
-    return c;
-  }
-  function streak(col, seed) {
-    var c = document.createElement("canvas"); c.width = 256; c.height = 48;
-    var g = c.getContext("2d"), r = SF.rng(seed);
-    for (var i = 0; i < 18; i++) {
-      var x = 20 + r() * 216, y = 14 + r() * 20, len = 40 + r() * 90;
-      var gr = g.createLinearGradient(x - len / 2, 0, x + len / 2, 0);
-      gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(.5, SF.sky.css(col, .35)); gr.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = gr; g.fillRect(x - len / 2, y, len, 1.5 + r() * 3);
-    }
+    var sh = g.createLinearGradient(0, baseY - h * .45, 0, baseY);
+    sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, SF.sky.css(base, .75));
+    g.fillStyle = sh; g.fillRect(0, 0, w, h);
     return c;
   }
 
@@ -61,24 +87,40 @@
       var dpr = Math.min(window.devicePixelRatio || 1, q === "high" ? 1.5 : 1), W = 0, H = 0, wins = [], centre = null;
 
       /* ---------- the world around the aircraft (km, ft) ---------- */
-      var rng = SF.rng(SF.hash(opts.seed || "sky")), clouds = [], cirrus = [], ground = [], stars = [], i;
-      var nC = q === "low" ? 90 : q === "balanced" ? 160 : 240;
-      for (i = 0; i < nC; i++) {
-        var near = i < nC * .3;   // a share close in, for climb and descent through the layer
-        clouds.push({ a: (rng() - .5) * 300, r: near ? .3 + rng() * 12 : 8 + rng() * 190, h: 4500 + rng() * 3500, s: near ? .6 + rng() * 1.6 : 2.5 + rng() * 6, v: rng() * 3 | 0 });
+      var rng = SF.rng(SF.hash(opts.seed || "sky")), clouds = [], ground = [], towns = [], stars = [], i;
+      var Q = q === "low" ? .35 : q === "balanced" ? .6 : 1;
+      function layer(type, count, h0, h1, s0, s1, r0, r1, span) {
+        for (var n = 0; n < Math.round(count * Q); n++) clouds.push({ type: type, a: (rng() - .5) * span, r: r0 + Math.pow(rng(), 1.3) * (r1 - r0), h: h0 + rng() * (h1 - h0), s: s0 + Math.pow(rng(), 1.8) * (s1 - s0), v: rng() * 4 | 0, span: span });
       }
-      for (i = 0; i < (q === "low" ? 16 : 36); i++) clouds.push({ a: (rng() - .5) * 300, r: 10 + rng() * 190, h: 8000 + rng() * 3000, s: 14 + rng() * 26, v: rng() * 3 | 0, flat: true });
-      for (i = 0; i < (q === "low" ? 10 : 22); i++) cirrus.push({ a: (rng() - .5) * 400, r: 8 + rng() * 160, h: 30000 + rng() * 6000, s: 9 + rng() * 14, v: rng() * 2 | 0 });
-      // towns: clusters of lights by night, darker patches by day
-      for (var tn = 0; tn < (q === "low" ? 14 : 30); tn++) {
-        var ta = (rng() - .5) * 400, tr = 4 + rng() * 180, n = 6 + rng() * 26 | 0, spread = 1 + rng() * 4;
-        for (i = 0; i < n; i++) ground.push({ a: ta + (rng() - .5) * spread, r: Math.max(.5, tr + (rng() - .5) * spread), k: rng(), lit: rng() < .8 });
+      layer("cumulus", 34, 3500, 6500, .4, 1.6, .3, 12, 300);     // close in, for climb and descent
+      layer("cumulus", 70, 3500, 7000, 1.5, 7, 8, 200, 300);
+      layer("puff", 60, 3000, 6000, .6, 2.2, 6, 190, 300);
+      layer("strato", 24, 6500, 9500, 6, 20, 10, 200, 300);
+      layer("alto", 44, 13000, 17500, 3, 10, 8, 200, 320);
+      layer("cirrus", 26, 28000, 34000, 8, 22, 8, 200, 400);
+      layer("veil", 8, 38500, 41000, 20, 40, 6, 120, 400);
+      // towns (clusters, some strung out along a road); lit only where there is land beneath them
+      for (var tn = 0; tn < Math.round(120 * Q); tn++) {
+        var t = { a: (rng() - .5) * 400, r: 3 + Math.pow(rng(), 1.1) * 185, size: Math.pow(rng(), 1.4), road: rng() < .35, ang: rng() * Math.PI, land: true, pts: [] };
+        var cnt = Math.round((10 + t.size * t.size * 90) * (q === "low" ? .5 : 1)), spread = .8 + t.size * 5;
+        for (i = 0; i < cnt; i++) {
+          var along = (rng() - .5) * spread * (t.road ? 5 : 1), across = (rng() + rng() - 1) * spread * (t.road ? .15 : .6);
+          t.pts.push({ da: Math.cos(t.ang) * along - Math.sin(t.ang) * across, dr: Math.sin(t.ang) * along + Math.cos(t.ang) * across, k: rng(), f: 2 + rng() * 6, ph: rng() * 6.3, warm: rng() < .7 });
+        }
+        towns.push(t);
       }
       for (i = 0; i < 1600; i++) stars.push({ az: rng() * 360, el: 1 + rng() * 45, m: .3 + rng() * .7 });
-      function wrapA(o, span) { if (o.a < -span / 2) o.a += span; else if (o.a > span / 2) o.a -= span; }
+      function wrapA(o, span) { if (o.a < -span / 2) { o.a += span; return true; } if (o.a > span / 2) { o.a -= span; return true; } return false; }
+      // where a point of the world sits on the earth, from its offset to the aircraft
+      function landAt(o, st2) {
+        var hd = st2.heading * D2R, side = (st2.heading - 90 * dir) * D2R;
+        var east = Math.sin(hd) * o.a + Math.sin(side) * o.r, north = Math.cos(hd) * o.a + Math.cos(side) * o.r;
+        var p2 = SF.geo.offsetKm(st2.pos, east, north);
+        return SF.geo.isLand(p2.lat, Math.max(-180, Math.min(180, p2.lon)));
+      }
 
       /* ---------- palette and sprites (rebuilt as the light changes) ---------- */
-      var P = null, sun = null, moon = null, moonK = 0, dayness = 1, overWater = false, sprites = [], streaks = [], lastLight = 0;
+      var P = null, sun = null, moon = null, moonK = 0, dayness = 1, overWater = false, sprites = {}, lastLight = 0;
       function light(st) {
         var when = new Date();
         if (SF.devSunHour != null) { var d = new Date(); when = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + (SF.devSunHour - st.pos.lon / 15) * 3600000); }
@@ -90,8 +132,13 @@
         moonK = moon.el > -1 ? moon.fraction * clamp((moon.el + 1) / 10, 0, 1) * (1 - dayness) : 0;
         overWater = !SF.geo.isLand(st.pos.lat, st.pos.lon);
         var cloudCol = SF.sky.mix(P.cloud, [150, 166, 210], Math.min(.6, moonK * .8));
-        sprites = [0, 1, 2].map(function (k) { return puff(cloudCol, 11 + k, 256, 128); });
-        streaks = [0, 1].map(function (k) { return streak(cloudCol, 31 + k); });
+        var vars = q === "low" ? 2 : q === "balanced" ? 3 : 4;
+        sprites = {};
+        Object.keys(SHAPE).forEach(function (t2, ti) {
+          sprites[t2] = [];
+          for (var vi = 0; vi < vars; vi++) sprites[t2].push(cloudSprite(t2, 101 + ti * 17 + vi * 5, t2 === "cirrus" || t2 === "veil" ? SF.sky.mix(cloudCol, [255, 255, 255], .2) : cloudCol));
+        });
+        towns.forEach(function (t2) { t2.land = landAt(t2, st); });
         lastLight = Date.now();
       }
 
@@ -168,9 +215,8 @@
         var alt = st.altitudeFt || 0, gsKmS = (st.groundSpeedKt || 0) * 1.852 / 3600;
         var speed = reduce ? 0 : gsKmS * (SF.store.state.activeFlight ? SF.store.state.activeFlight.timeScale || 1 : 1);
         // world drifts backwards past the window
-        clouds.forEach(function (c) { c.a -= speed * dt; wrapA(c, 300); });
-        cirrus.forEach(function (c) { c.a -= speed * dt; wrapA(c, 400); });
-        ground.forEach(function (c) { c.a -= speed * dt; wrapA(c, 400); });
+        clouds.forEach(function (c) { c.a -= speed * dt; wrapA(c, c.span); });
+        towns.forEach(function (t2) { t2.a -= speed * dt; if (wrapA(t2, 400)) t2.land = landAt(t2, st); });
         // bank from the rate of turn (holds), smoothed by a spring
         var dh = wrap180(st.heading - lastHdg) / Math.max(dt, .001);
         lastHdg = st.heading;
@@ -202,7 +248,7 @@
         var sky = g.createLinearGradient(0, hy - 28 * k, 0, hy);
         sky.addColorStop(0, SF.sky.css(P.zenith)); sky.addColorStop(1, SF.sky.css(P.horizon));
         g.fillStyle = sky; g.fillRect(-W, hy - H * 3, W * 3, H * 3 + 1);
-        var earth = SF.sky.mix(SF.sky.mix(P.ground, [40, 66, 92], alt > 10000 ? .55 : .15), P.horizon, .25 * (1 - P.lights));
+        var earth = SF.sky.mix(SF.sky.mix(P.ground, overWater ? [22, 52, 88] : [52, 66, 58], alt > 10000 ? .6 : .3), P.horizon, .25 * (1 - P.lights));
         var eg = g.createLinearGradient(0, hy, 0, hy + 40 * k);
         eg.addColorStop(0, SF.sky.css(SF.sky.mix(P.horizon, earth, .35))); eg.addColorStop(.12, SF.sky.css(SF.sky.mix(P.horizon, earth, .75))); eg.addColorStop(1, SF.sky.css(earth));
         g.fillStyle = eg; g.fillRect(-W, hy, W * 3, H * 3);
@@ -243,24 +289,38 @@
           g.fillStyle = glow; g.fillRect(sx - 15 * k, sy - 15 * k, 30 * k, 30 * k);
           if (sun.el > -1) { g.fillStyle = SF.sky.css(SF.sky.mix(P.sun, [255, 255, 255], .6)); g.beginPath(); g.arc(sx, sy, Math.max(5, .3 * k), 0, Math.PI * 2); g.fill(); }
         }
-        // ground features: fields by day, lights by night
+        // towns and roads: twinkling lights at night, only over land
         var night = P.lights;
-        ground.forEach(function (o) {
-          var p = proj(o.a, o.r, 0, alt, cx, hy, k);
-          if (p.d > 190 || Math.abs(p.az) > 70) return;
-          var fade = 1 - p.d / 190;
-          if (night > .3 && o.lit) {
-            var a2 = fade * night * (.55 + .45 * o.k), z = Math.max(1.2, 3.4 - p.d / 50);
-            g.fillStyle = "rgba(255,196,110," + (a2 * .25).toFixed(3) + ")";
-            g.fillRect(p.x - z * 1.5, p.y - z, z * 4, z * 3);
-            g.fillStyle = "rgba(255,222,160," + a2.toFixed(2) + ")";
-            g.fillRect(p.x, p.y, z, z * .8);
-          } else if (night < .6) {
-            var sz = Math.max(1, 1.6 / p.d * R2D * k * .12);
-            g.fillStyle = "rgba(" + (o.k > .5 ? "0,0,0," : "255,255,255,") + (fade * .07 * (1 - night)).toFixed(3) + ")";
-            g.fillRect(p.x - sz, p.y, sz * 2, Math.max(1, sz * .25));
+        if (night > .2) towns.forEach(function (t2) {
+          if (!t2.land) return;
+          var c2 = proj(t2.a, t2.r, 0, alt, cx, hy, k);
+          if (c2.d > 200 || Math.abs(c2.az) > 72) return;
+          var fade = Math.pow(1 - c2.d / 200, .7) * night;
+          if (t2.size > .25) {   // the glow over a town
+            var gR = (2 + t2.size * 7) / c2.d * R2D * k * .55;
+            var cg = g.createRadialGradient(c2.x, c2.y, 0, c2.x, c2.y, gR);
+            cg.addColorStop(0, "rgba(255,170,90," + ((.12 + .2 * t2.size) * fade).toFixed(3) + ")"); cg.addColorStop(1, "rgba(255,170,90,0)");
+            g.fillStyle = cg; g.fillRect(c2.x - gR, c2.y - gR, gR * 2, gR * 2);
           }
+          t2.pts.forEach(function (pp) {
+            var p = proj(t2.a + pp.da, t2.r + pp.dr, 0, alt, cx, hy, k);
+            var tw = reduce ? 1 : .7 + .3 * Math.sin(ts * pp.f + pp.ph);
+            var a2 = Math.min(1, fade * (.6 + .6 * pp.k) * tw), z = Math.max(1.3, 3 - p.d / 60);
+            g.fillStyle = pp.warm ? "rgba(255,206,130," + a2.toFixed(3) + ")" : "rgba(220,236,255," + (a2 * .85).toFixed(3) + ")";
+            g.fillRect(p.x, p.y, z, z * .8);
+          });
         });
+        // sun glint on open water, below the sun
+        if (overWater && sun.el > 2 && sun.el < 50 && alt > 2000) {
+          var sgx = cx + wrap180(sun.az - viewAz) * k, sgy = hy + sun.el * k, sR = (8 + sun.el * .25) * k;
+          if (Math.abs(sgx - cx) < W) {
+            var sgg = g.createRadialGradient(sgx, sgy, 0, sgx, sgy, sR);
+            sgg.addColorStop(0, SF.sky.css(SF.sky.mix(P.sun, [255, 255, 255], .5), .5)); sgg.addColorStop(1, SF.sky.css(P.sun, 0));
+            g.save(); g.translate(sgx, sgy); g.scale(1, .35); g.translate(-sgx, -sgy);
+            g.fillStyle = sgg; g.fillRect(sgx - sR, sgy - sR, sR * 2, sR * 2);
+            g.restore();
+          }
+        }
         // moon glitter on open water
         if (overWater && moonK > .04 && alt > 2000) {
           var gx = cx + wrap180(moon.az - viewAz) * k;
@@ -282,23 +342,36 @@
             }
           }
         }
-        // cirrus and cumulus, far to near
+        // cloud layers, far to near
         var list = [];
-        cirrus.forEach(function (o) { list.push({ o: o, p: proj(o.a, o.r, o.h, alt, cx, hy, k), img: streaks[o.v] }); });
-        clouds.forEach(function (o) { list.push({ o: o, p: proj(o.a, o.r, o.h, alt, cx, hy, k), img: sprites[o.v] }); });
+        clouds.forEach(function (o) {
+          var p = proj(o.a, o.r, o.h, alt, cx, hy, k);
+          if (Math.abs(p.az) > 75) return;
+          list.push({ o: o, p: p });
+        });
         list.sort(function (x, y) { return y.p.d - x.p.d; });
         var whiteout = 0;
         list.forEach(function (it) {
-          var p = it.p, o = it.o;
-          if (Math.abs(p.az) > 75) return;
+          var p = it.p, o = it.o, img = sprites[o.type][o.v % sprites[o.type].length];
           var size = o.s / p.d * R2D * k;
           if (size < 2) return;
-          var wpx = size * 2, hpx = wpx * it.img.height / it.img.width;
-          if (o.flat) hpx = wpx * Math.max(.05, Math.abs(Math.atan2((o.h - alt) * .0003048, p.d))) * .8;
-          var fade = clamp(1 - p.d / (o.h > 20000 ? 260 : 170), 0, 1);
+          var wpx = size * 2, hpx = wpx * img.height / img.width;
+          if (o.type === "strato" || o.type === "alto" || o.type === "veil") hpx *= clamp(Math.abs(Math.atan2((o.h - alt) * .0003048, p.d)) * 4, .22, 1);
+          var far = o.h > 20000 ? 280 : 190, fade = clamp(1 - p.d / far, 0, 1);
           if (p.d < 1.2 && Math.abs(o.h - alt) < 900) whiteout = Math.max(whiteout, 1 - p.d / 1.2);
-          g.globalAlpha = fade * (o.flat ? .55 : it.img === sprites[o.v] ? 1 : .8);
-          g.drawImage(it.img, p.x - wpx / 2, p.y - hpx * .6, wpx, hpx);
+          g.globalAlpha = fade * (o.type === "veil" ? .7 : o.type === "alto" ? .8 : .95);
+          g.drawImage(img, p.x - wpx / 2, p.y - hpx * .7, wpx, hpx);
+        });
+        g.globalAlpha = 1;
+        // big towns light the cloud above them from below
+        if (night > .3 && alt > 9000) towns.forEach(function (t2) {
+          if (!t2.land || t2.size < .45) return;
+          var c3 = proj(t2.a, t2.r, 6000, alt, cx, hy, k);
+          if (c3.d > 180 || Math.abs(c3.az) > 72) return;
+          var R3 = (3 + t2.size * 8) / c3.d * R2D * k * .5, a3 = .14 * night * (1 - c3.d / 180);
+          var cg3 = g.createRadialGradient(c3.x, c3.y, 0, c3.x, c3.y, R3);
+          cg3.addColorStop(0, "rgba(255,160,80," + a3.toFixed(3) + ")"); cg3.addColorStop(1, "rgba(255,160,80,0)");
+          g.fillStyle = cg3; g.fillRect(c3.x - R3, c3.y - R3, R3 * 2, R3 * 2);
         });
         g.globalAlpha = 1;
         g.restore();
