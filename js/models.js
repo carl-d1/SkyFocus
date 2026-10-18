@@ -4,14 +4,23 @@
 (function () {
   var SF = (window.SF = window.SF || {});
 
-  function swept(T, span, root, tip, sweep, thick) {
-    // planform in the XY plane (x = span, y = chord), extruded for thickness
-    var s = new T.Shape();
-    s.moveTo(0, 0); s.lineTo(span, -sweep); s.lineTo(span, -sweep - tip); s.lineTo(0, -root); s.closePath();
-    var g = new T.ExtrudeGeometry(s, { depth: thick, bevelEnabled: true, bevelThickness: thick * .4, bevelSize: thick * .4, bevelSegments: 2, curveSegments: 4 });
-    g.translate(0, 0, -thick / 2);
+  // Closed panel lofted between two airfoil-like sections (wing, stabiliser, fin). Each section has a
+  // leading-edge point, a chord running back along -Z and a thickness along Y (wings) or X (fins).
+  function loft(T, a, b, axis) {
+    function sec(s) {
+      var t = s.t / 2, o = axis === "x" ? [t, 0, 0] : [0, t, 0], L = s.le, c = s.c;
+      return [[L[0], L[1], L[2]], [L[0] + o[0], L[1] + o[1], L[2] - .3 * c], [L[0], L[1], L[2] - c], [L[0] - o[0], L[1] - o[1], L[2] - .3 * c]];
+    }
+    var A = sec(a), B = sec(b), pos = [];
+    function tri(p, q, r) { pos.push(p[0], p[1], p[2], q[0], q[1], q[2], r[0], r[1], r[2]); }
+    for (var i = 0; i < 4; i++) { var j = (i + 1) % 4; tri(A[i], B[i], B[j]); tri(A[i], B[j], A[j]); }
+    tri(A[0], A[1], A[2]); tri(A[0], A[2], A[3]); tri(B[0], B[2], B[1]); tri(B[0], B[3], B[2]);
+    var g = new T.BufferGeometry();
+    g.setAttribute("position", new T.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
     return g;
   }
+  function mirror(le, side) { return [le[0] * side, le[1], le[2]]; }
 
   SF.models = {
     airliner: function (T, opts) {
@@ -45,49 +54,36 @@
       band.rotation.x = Math.PI / 2; band.position.set(0, .12, .4); band.scale.set(1, 1, .06);
       plane.add(band);
 
-      // main wings: swept, slight dihedral, mounted low
+      // flat-shaded, double-sided copies for the lofted panels
+      function panelMat(m) { var c = m.clone(); c.side = T.DoubleSide; c.flatShading = true; return c; }
+      var greyP = panelMat(grey), bodyP = panelMat(body), signalP = panelMat(signal);
+      function add(geo, mat) { var m = new T.Mesh(geo, mat); plane.add(m); return m; }
+
       [-1, 1].forEach(function (side) {
-        var w = new T.Mesh(swept(T, 6.2, 2.7, .8, 2.3, .14), grey);
-        w.rotation.x = -Math.PI / 2;
-        w.scale.x = side;
-        w.rotation.z = side * .07;
-        w.position.set(side * .35, -.28, 1.1);
-        plane.add(w);
-        // winglet
-        var wl = new T.Mesh(swept(T, .7, .8, .35, .5, .06), signal);
-        wl.rotation.set(0, side < 0 ? Math.PI : 0, side * 1.35);
-        wl.position.set(side * 6.5, .15, -1.25);
-        plane.add(wl);
-        // engine nacelle, pylon and intake ring
-        var nac = new T.Mesh(new T.CylinderGeometry(.34, .28, 1.9, seg), body);
-        nac.rotation.x = Math.PI / 2; nac.position.set(side * 2.35, -.72, 1.2);
+        // main wing: swept back, slight dihedral, mounted low
+        add(loft(T, { le: mirror([.45, -.34, 1.6], side), c: 2.8, t: .26 }, { le: mirror([6.6, -.06, -1.1], side), c: .8, t: .08 }), greyP);
+        // winglet in the signal colour
+        add(loft(T, { le: mirror([6.6, -.06, -1.1], side), c: .8, t: .07 }, { le: mirror([6.78, .78, -1.62], side), c: .38, t: .04 }, "x"), signalP);
+        // engine: nacelle, intake ring, fan face, pylon
+        var nac = new T.Mesh(new T.CylinderGeometry(.36, .29, 2.0, seg), body);
+        nac.rotation.x = Math.PI / 2; nac.position.set(side * 2.4, -.86, 1.45);
         plane.add(nac);
-        var ring = new T.Mesh(new T.TorusGeometry(.32, .06, 8, seg), dark);
-        ring.position.set(side * 2.35, -.72, 2.15);
+        var ring = new T.Mesh(new T.TorusGeometry(.33, .06, 8, seg), dark);
+        ring.position.set(side * 2.4, -.86, 2.45);
         plane.add(ring);
-        var fan = new T.Mesh(new T.CircleGeometry(.3, seg), dark);
-        fan.position.set(side * 2.35, -.72, 2.1);
+        var fan = new T.Mesh(new T.CircleGeometry(.31, seg), dark);
+        fan.position.set(side * 2.4, -.86, 2.4);
         plane.add(fan);
-        var pylon = new T.Mesh(new T.BoxGeometry(.1, .4, 1.1), grey);
-        pylon.position.set(side * 2.35, -.45, .9);
+        var pylon = new T.Mesh(new T.BoxGeometry(.1, .42, 1.3), grey);
+        pylon.position.set(side * 2.4, -.5, 1.05);
         plane.add(pylon);
         // horizontal stabiliser
-        var hs = new T.Mesh(swept(T, 2.3, 1.5, .55, 1.1, .08), grey);
-        hs.rotation.x = -Math.PI / 2; hs.scale.x = side; hs.rotation.z = side * .12;
-        hs.position.set(side * .15, .25, -3.6);
-        plane.add(hs);
+        add(loft(T, { le: mirror([.2, .12, -3.25], side), c: 1.5, t: .12 }, { le: mirror([2.55, .32, -4.4], side), c: .55, t: .05 }), greyP);
       });
 
-      // vertical fin with the SkyFocus signal stripe
-      var fin = new T.Mesh(swept(T, 2.4, 2.1, .85, 1.6, .1), body);
-      fin.rotation.set(0, -Math.PI / 2, Math.PI / 2);
-      fin.rotation.order = "YZX";
-      fin.position.set(0, .45, -3.2);
-      plane.add(fin);
-      var stripe = new T.Mesh(swept(T, .35, 1.6, 1.45, .25, .12), signal);
-      stripe.rotation.copy(fin.rotation);
-      stripe.position.set(0, 1.9, -4.25);
-      plane.add(stripe);
+      // vertical fin with the SkyFocus signal band across the top
+      add(loft(T, { le: [0, .5, -2.9], c: 2.2, t: .16 }, { le: [0, 2.9, -4.5], c: .9, t: .07 }, "x"), bodyP);
+      add(loft(T, { le: [0, 2.2, -4.03], c: 1.3, t: .1 }, { le: [0, 2.92, -4.51], c: .92, t: .085 }, "x"), signalP);
 
       plane.traverse(function (o) { if (o.isMesh) { o.castShadow = !!opts.shadows; o.receiveShadow = !!opts.shadows; } });
       return plane;

@@ -75,7 +75,7 @@
   }
 
   /* ---------- gate view ---------- */
-  var DND = ["Phone silenced", "Other tabs closed", "Water ready", "Materials open"];
+  var DND = ["Turn on YPT", "Other tabs closed", "Water ready", "Materials open"];
 
   SF.views.board = {
     fit: true,
@@ -104,28 +104,51 @@
         "</aside></div>";
 
       var pass = SF.renderPass(af);
+      // Board stays locked until every pre-departure check is ticked. Later legs of the same journey
+      // keep the ticks.
+      var checks = ui.$$("#dnd input", root), boardBtn = root.querySelector("#boardBtn");
+      if (checks.length && SF.dndJourney && SF.dndJourney === af.journeyId) checks.forEach(function (c) { c.checked = true; });
+      var boarded = false;
+      function checkGate() {
+        var ok = checks.every(function (c) { return c.checked; });
+        if (boarded) return ok;
+        boardBtn.disabled = !ok;
+        boardBtn.title = ok ? "" : "Complete the pre-departure check first";
+        if (ok && af.journeyId) SF.dndJourney = af.journeyId;
+        return ok;
+      }
+      checks.forEach(function (c) { c.addEventListener("change", checkGate); });
+      checkGate();
       root.querySelector("#passWrap").appendChild(pass);
       document.getElementById("backBook").onclick = function () {
         // leaving the gate during a journey ends the journey (no leg is lost: this one has not departed)
         if (af.journeyId && SF.journey.active()) SF.journey.end();
         SF.engine.cancel(); ui.go("book");
       };
-      // Journey legs started by the layover timer board on their own after a short countdown.
-      if (SF.autoBoard) {
-        SF.autoBoard = false;
-        var n = 5, btn = root.querySelector("#boardBtn"), lbl = btn.querySelector("span");
-        lbl.textContent = "Boarding in " + n;
-        var autoIv = setInterval(function () {
-          n--;
-          if (n <= 0) { clearInterval(autoIv); lbl.textContent = "Board"; btn.click(); return; }
-          lbl.textContent = "Boarding in " + n;
-        }, 1000);
-        timers.push(autoIv);
-        root.addEventListener("pointerdown", function stop(e) { if (e.target.closest("#boardBtn")) return; clearInterval(autoIv); lbl.textContent = "Board"; root.removeEventListener("pointerdown", stop); });
+      // Journey legs started by the layover timer board on their own after a short delay (a bar fills
+      // the Board button; touching anything else cancels it).
+      var auto = SF.autoBoard;
+      SF.autoBoard = false;
+      if (auto && checkGate()) {
+        var btn = root.querySelector("#boardBtn");
+        btn.classList.add("auto-board");
+        btn.querySelector("span").textContent = "Boarding";
+        requestAnimationFrame(function () { requestAnimationFrame(function () { btn.classList.add("run"); }); });
+        var autoT = setTimeout(function () { btn.classList.remove("auto-board", "run"); btn.click(); }, 5000);
+        timers.push(autoT);
+        root.addEventListener("pointerdown", function stop(e) {
+          if (e.target.closest("#boardBtn")) return;
+          clearTimeout(autoT);
+          btn.classList.remove("auto-board", "run");
+          btn.querySelector("span").textContent = "Board";
+          root.removeEventListener("pointerdown", stop);
+        });
       }
 
       root.querySelector("#boardBtn").onclick = function () {
+        if (!checkGate()) return;
         var ap = root.querySelector("#apMode").checked;
+        boarded = true;
         this.disabled = true;
         this.querySelector("span").textContent = "Boarding closed";
         if (SF.audio && SF.audio.unlock) SF.audio.unlock();
@@ -133,45 +156,30 @@
         var reduce = ui.reducedMotion();
         pass.classList.add("stamped");
         timers.push(setTimeout(function () { pass.classList.add("torn"); }, reduce ? 0 : 450));
-        timers.push(setTimeout(function () { countdown(ap); }, reduce ? 200 : 1200));
+        timers.push(setTimeout(function () { takeoff(ap); }, reduce ? 200 : 1100));
       };
+      SF.scenes.preload();
 
-      function countdown(ap) {
-        var n = 5;
-        var ov = ui.h('<div class="countdown" role="dialog" aria-modal="true" aria-label="Takeoff countdown"><div class="glass cd-inner">' +
-          '<p class="label">Cleared for takeoff</p><div class="cd-num" aria-live="assertive">5</div>' +
-          '<p class="mono muted">' + af.flightNo + "  " + af.from + " → " + af.to + '</p><button class="btn" id="cdSkip">Skip <kbd>Enter</kbd></button></div></div>');
-        document.body.appendChild(ov);
-        var done = false;
+      // The takeoff scene plays over the gate; the flight starts as it hands over to the map.
+      function takeoff(ap) {
+        var scened = SF.scenes.enabled();
         function go() {
-          if (done) return;
-          done = true;
-          clearInterval(iv);
-          document.removeEventListener("keydown", key, true);
-          ov.remove();
-          SF.store.update(function (st) { st.activeFlight.airplaneMode = ap; }, true);
+          SF.store.update(function (st) {
+            var f = st.activeFlight;
+            f.airplaneMode = ap;
+            // the scene already showed pushback and takeoff, so the cabin does not announce them again
+            if (scened) { f.milestones = f.milestones || {}; f.milestones.pushback = 1; f.milestones.takeoff = 1; }
+          }, true);
           if (ap) document.body.classList.add("airplane");
           SF.engine.start();
           ui.go("flight");
         }
-        function key(e) { if (e.key === "Enter" || e.key === " " || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); go(); } }
-        document.addEventListener("keydown", key, true);
-        ov.querySelector("#cdSkip").onclick = go;
-        ov.querySelector("#cdSkip").focus();
-        var iv = setInterval(function () {
-          n--;
-          if (n <= 0) { go(); return; }
-          var num = ov.querySelector(".cd-num");
-          num.textContent = n;
-          num.classList.remove("pop"); void num.offsetWidth; num.classList.add("pop");
-        }, 1000);
-        self._cd = function () { if (!done) { done = true; clearInterval(iv); document.removeEventListener("keydown", key, true); ov.remove(); } };
+        if (scened) SF.scenes.play("takeoff", { flight: af, reveal: go });
+        else go();
       }
     },
     unmount: function () {
       (this._timers || []).forEach(function (t) { clearTimeout(t); clearInterval(t); });
-      if (this._cd) this._cd();
-      this._cd = null;
     }
   };
 })();

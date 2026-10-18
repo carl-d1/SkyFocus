@@ -53,6 +53,7 @@
           '<div class="field"><span class="label">Clock</span>' + seg("clock", s.clock24 ? "24" : "12", [["24", "24-hour"], ["12", "12-hour"]]) + "</div>" +
           '<div class="field"><span class="label">Graphics quality</span>' + seg("gfx", s.graphics || "high", [["high", "High"], ["balanced", "Balanced"], ["low", "Low"]]) + "</div>" +
           toggle("sMotion", s.reducedMotion, "Reduce motion", "Animations off. The system setting also applies.") +
+          toggle("sScenes", s.scenes !== false, "Takeoff and landing scenes", "Short sequences at departure and arrival. Space skips.") +
           toggle("sSound", s.sounds, "Sound", "Chimes and cabin audio.") +
           "</section>" +
 
@@ -132,6 +133,7 @@
         num("#jEvery", 2, 8, function (s, v) { s.settings.journey.longEvery = v; });
         root.querySelector("#jAuto").onchange = function () { var v = this.checked; set(function (s) { s.settings.journey.autoStart = v; }); };
         root.querySelector("#sMotion").onchange = function () { var v = this.checked; set(function (s) { s.settings.reducedMotion = v; }); };
+        root.querySelector("#sScenes").onchange = function () { var v = this.checked; set(function (s) { s.settings.scenes = v; }); };
         root.querySelector("#sSound").onchange = function () { var v = this.checked; set(function (s) { s.settings.sounds = v; }); };
         ui.$$("[data-seg]", root).forEach(function (g) {
           g.onclick = function (e) {

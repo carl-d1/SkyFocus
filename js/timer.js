@@ -368,10 +368,14 @@
       if (af.pauseStart) flight.closeHold(af, Date.now());
       var rec = flight.toRecord(af, "landed", st);
       engine.finish(rec, af.to);
-      if (SF.audio && SF.audio.touchdown) SF.audio.touchdown();
-      SF.ui.announce("Landed", "Arrived " + af.toCity + ".", "landing");
       engine.emit("landed", rec);
-      SF.ui.go("arrival/" + rec.id);
+      // The record is saved before the landing scene, so closing the app mid-scene loses nothing.
+      function arrive() {
+        SF.ui.announce("Landed", "Arrived " + af.toCity + ".", "landing");
+        SF.ui.go("arrival/" + rec.id);
+      }
+      if (SF.scenes && SF.scenes.enabled()) SF.scenes.play("landing", { flight: rec, reveal: arrive });
+      else { if (SF.audio && SF.audio.touchdown) SF.audio.touchdown(1); arrive(); }
     },
 
     divert: function (reason) {

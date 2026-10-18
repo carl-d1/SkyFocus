@@ -31,6 +31,7 @@
         clock24: true,
         theme: "dark",
         reducedMotion: false,
+        scenes: true,
         sounds: true,
         strictness: "warn",
         strictMinutes: 3,

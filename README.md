@@ -109,10 +109,11 @@ Done:
 - Maps: Classic (Esri dark or light canvas basemap) and Satellite (Esri World Imagery) through Leaflet 1.9.4, and a three.js r149 3D globe with real day and night imagery blended along the terminator. Each mode shows the built-in map instantly, swaps to the real one when its library loads, and keeps the built-in map (flat or canvas globe) if the network, tiles or WebGL are unavailable.
 - Holding pattern: while holding, the plane flies a racetrack loop at its position on every map. Each flight records its real track (route progress plus every hold), shown on the arrival report's route chart and replayed in the logbook.
 - Pomodoro journeys: book a chain of 2 to 8 legs (or an open journey) between nearby airports. Each leg is a normal focus flight, layovers are the breaks (short after each leg, long after every Nth), with optional auto boarding. Lengths are set in Settings, and the logbook groups the legs of each journey.
+- Takeoff and landing scenes: after boarding, a skippable 3D takeoff (line up, roll with runway lights streaking, rotation, gear up, climb through cloud) hands over to the in-flight map. Each landing plays a descent through cloud, touchdown with a small bounce and tyre smoke, and rollout before the arrival report. Lighting follows the real sun at the airport, including night with runway, approach and city lights. Reduced motion, no WebGL or no network gives a 2D side view instead. Settings has a switch to turn the scenes off. The countdown is gone, and Board stays locked until the pre-departure check is complete.
 
 Next:
-- Window view and Web Audio
-- Takeoff and landing scenes in 3D, then the wider motion pass
+- Window view and Web Audio (the scenes already call `SF.audio.engine(level)` and `SF.audio.touchdown(strength)`)
+- The wider motion pass (home 3D plane, pass flip and tear, shared-element transitions, spring physics)
 - Stats dashboard, achievements and frequent-flyer tiers
 
 ## Credits

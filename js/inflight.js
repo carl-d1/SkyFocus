@@ -277,6 +277,7 @@
 
       buildMap();
       setCamera(camera);
+      SF.scenes.preload();   // the landing scene
       syncAp();
       render(SF.flight.status(af));
       self._cleanup = function () {
