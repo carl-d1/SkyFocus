@@ -15,6 +15,23 @@
   var DEFAULT_MIX = { master: .8, muted: false, layers: { engine: .55, rain: 0, noise: 0, pad: .25 } };
 
   var ctx = null, out = null, layerGain = {}, nodes = {}, scene = "idle", cabinLevel = .7, override = null, padTimer = null;
+  var busyUntil = 0, quietSince = 0;
+
+  // Run fn once the context is running, so nothing is scheduled against a paused clock (late or clipped).
+  function wake(fn) {
+    quietSince = 0;
+    if (ctx && ctx.state === "suspended") ctx.resume().then(fn, fn); else fn();
+  }
+  // Every layer and effect silent for a few seconds: suspend the context, which stops the audio thread.
+  function sleepCheck() {
+    if (!ctx || ctx.state !== "running") { quietSince = 0; return; }
+    var silent = override == null && ctx.currentTime > busyUntil && !(SF.scenes && SF.scenes.playing) &&
+      LAYERS.every(function (l) { return mixTarget(l.id) === 0 && layerGain[l.id].gain.value < 1e-4; });
+    if (!silent) { quietSince = 0; return; }
+    if (!quietSince) quietSince = Date.now();
+    else if (Date.now() - quietSince > 3000) { quietSince = 0; ctx.suspend(); }
+  }
+  function busy(until) { busyUntil = Math.max(busyUntil, until + .2); }
 
   function mix() {
     var m = (SF.store && SF.store.state.audioMix) || {};
@@ -148,10 +165,12 @@
   }
   function apply(fast) {
     if (!ctx) return;
-    var t = ctx.currentTime, m = mix(), tc = fast ? .05 : .6;
-    out.gain.setTargetAtTime(audible() ? m.master : 0, t, .08);
-    LAYERS.forEach(function (l) { layerGain[l.id].gain.setTargetAtTime(mixTarget(l.id), t, tc); });
-    setThrottle(override != null ? override : cabinLevel, fast);
+    wake(function () {
+      var t = ctx.currentTime, m = mix(), tc = fast ? .05 : .6;
+      out.gain.setTargetAtTime(audible() ? m.master : 0, t, .08);
+      LAYERS.forEach(function (l) { layerGain[l.id].gain.setTargetAtTime(mixTarget(l.id), t, tc); });
+      setThrottle(override != null ? override : cabinLevel, fast);
+    });
   }
   function setThrottle(v, fast) {
     if (!ctx) return;
@@ -172,6 +191,7 @@
     g.gain.exponentialRampToValueAtTime(.0001, start + dur);
     o.connect(g); g.connect(out);
     o.start(start); o.stop(start + dur + .05);
+    busy(start + dur);
   }
   function noiseBurst(start, dur, f0, f1, peak, q) {
     var s = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
@@ -184,6 +204,7 @@
     g.gain.exponentialRampToValueAtTime(.0001, start + dur);
     s.connect(bp); bp.connect(g); g.connect(out);
     s.start(start); s.stop(start + dur + .05);
+    busy(start + dur);
   }
 
   var A = (SF.audio = {
@@ -211,9 +232,9 @@
           loadChime();
           padTimer = setInterval(padChord, 8000);
           padChord();
+          setInterval(sleepCheck, 1000);
         }
-        if (ctx.state === "suspended") ctx.resume();
-        apply(true);
+        apply(true);   // resumes the context first
       } catch (e) { console.info("Audio unavailable (" + e.message + ")"); }
     },
 
@@ -227,7 +248,7 @@
       override = level;
       if (!ctx) return;
       if (scene !== "cabin") { scene = "cabin"; apply(true); }
-      setThrottle(level, true);
+      wake(function () { setThrottle(level, true); });
     },
 
     // The cabin ding dong. Over http and in the desktop app it is decoded once and played through the
@@ -235,29 +256,34 @@
     // element plays it. The synthesised two-tone chime stands in if the file cannot load.
     chime: function () {
       if (!ctx || !audible()) return;
-      if (chimeBuf) {
-        var src = ctx.createBufferSource(), g = ctx.createGain();
-        src.buffer = chimeBuf; g.gain.value = .9;
-        src.connect(g); g.connect(out); src.start();
-        return;
-      }
-      if (location.protocol === "file:") {
-        try { var el = new Audio(CHIME_URL); el.volume = Math.min(1, mix().master * .9); el.play().catch(synthChime); return; } catch (e) { /* fall through */ }
-      }
-      synthChime();
+      wake(function () {
+        if (chimeBuf) {
+          var src = ctx.createBufferSource(), g = ctx.createGain();
+          src.buffer = chimeBuf; g.gain.value = .9;
+          src.connect(g); g.connect(out); src.start();
+          busy(ctx.currentTime + chimeBuf.duration);
+          return;
+        }
+        if (location.protocol === "file:") {
+          try { var el = new Audio(CHIME_URL); el.volume = Math.min(1, mix().master * .9); el.play().catch(synthChime); return; } catch (e) { /* fall through */ }
+        }
+        synthChime();
+      });
     },
     swoosh: function () {
       if (!ctx || !audible()) return;
-      noiseBurst(ctx.currentTime + .02, 2.6, 300, 1900, .14, .8);
+      wake(function () { noiseBurst(ctx.currentTime + .02, 2.6, 300, 1900, .14, .8); });
     },
     touchdown: function (strength) {
       if (!ctx || !audible()) return;
-      var k = strength == null ? 1 : strength, t = ctx.currentTime + .01;
-      var o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(38, t + .25);
-      g.gain.setValueAtTime(.5 * k, t); g.gain.exponentialRampToValueAtTime(.0001, t + .35);
-      o.connect(g); g.connect(out); o.start(t); o.stop(t + .4);
-      noiseBurst(t, .32, 2400, 1500, .1 * k, 2.5);
+      wake(function () {
+        var k = strength == null ? 1 : strength, t = ctx.currentTime + .01;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(38, t + .25);
+        g.gain.setValueAtTime(.5 * k, t); g.gain.exponentialRampToValueAtTime(.0001, t + .35);
+        o.connect(g); g.connect(out); o.start(t); o.stop(t + .4);
+        noiseBurst(t, .32, 2400, 1500, .1 * k, 2.5);
+      });
     },
 
     /* ---------- mix ---------- */

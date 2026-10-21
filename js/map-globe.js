@@ -196,16 +196,23 @@
       uniforms.sunDir.value.copy(d);
       sunLight.position.copy(d).multiplyScalar(5);
     }
+    // one element per marker, built when the markers change; each frame only moves or hides them
+    var labelFor = null, labelEls = [], camDir = new T.Vector3();
     function drawLabels() {
-      var html = "", camDir = camera.position.clone().normalize();
-      markers.forEach(function (m) {
-        var v = vec(T, m.lat, m.lon, 1.002);
-        if (v.clone().normalize().dot(camDir) < .1) return;
-        var q = v.clone().project(camera);
-        var x = (q.x + 1) / 2 * W, y = (1 - q.y) / 2 * H;
-        html += '<div class="gl-mark ' + (m.cls || "") + '" style="transform:translate(' + x.toFixed(1) + "px," + y.toFixed(1) + 'px)"><i></i>' + (m.label ? "<b>" + m.label + "</b>" : "") + "</div>";
+      if (labelFor !== markers) {
+        labelFor = markers;
+        labels.innerHTML = markers.map(function (m) { return '<div class="gl-mark ' + (m.cls || "") + '"><i></i>' + (m.label ? "<b>" + m.label + "</b>" : "") + "</div>"; }).join("");
+        labelEls = Array.prototype.map.call(labels.children, function (el) { el.style.display = "none"; return { el: el, t: "", on: false }; });
+      }
+      camDir.copy(camera.position).normalize();
+      markers.forEach(function (m, i) {
+        var L = labelEls[i], v = vec(T, m.lat, m.lon, 1.002);
+        if (v.clone().normalize().dot(camDir) < .1) { if (L.on) { L.on = false; L.el.style.display = "none"; } return; }
+        var q = v.project(camera);
+        var t = "translate(" + ((q.x + 1) / 2 * W).toFixed(1) + "px," + ((1 - q.y) / 2 * H).toFixed(1) + "px)";
+        if (t !== L.t) { L.t = t; L.el.style.transform = t; }
+        if (!L.on) { L.on = true; L.el.style.display = ""; }
       });
-      labels.innerHTML = html;
     }
     // banking (from the map manager) plus a slow sway, and a slight drift of the camera
     var baseQ = new T.Quaternion(), bank = 0, t0 = performance.now();
@@ -223,6 +230,7 @@
       camera.position.copy(camPos);
       if (!still) camera.position.add(new T.Vector3(Math.sin(s * .13), Math.cos(s * .11) * .7, Math.sin(s * .09 + 1) * .5).multiplyScalar(camPos.length() * .004));
       camera.lookAt(camLook);
+      if (SF.offstage()) return;   // the camera keeps easing; nothing is drawn while unseen
       renderer.render(scene, camera);
       drawLabels();
     }

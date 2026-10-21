@@ -335,7 +335,7 @@
       }
       function frame(now) {
         raf = requestAnimationFrame(frame);
-        if (document.hidden) { last = now; return; }
+        if (SF.offstage()) { last = now; return; }
         var dt = Math.min(.1, (now - last) / 1000);
         if (reduce && now - last < 1000) return;
         last = now;

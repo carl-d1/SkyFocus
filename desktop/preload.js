@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("skyfocusDesktop", {
   event: (ev) => ipcRenderer.send("app:event", ev),
   onCommand: (cb) => listen("app:command", cb),
   onPresence: (cb) => listen("app:presence", cb),
+  onVisible: (cb) => listen("win:visible", cb),
   // desktop preferences and data
   getPrefs: () => ipcRenderer.invoke("prefs:get"),
   setPrefs: (p) => ipcRenderer.invoke("prefs:set", p),

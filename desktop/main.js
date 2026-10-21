@@ -54,6 +54,7 @@ function saveStateNow() {
 let win = null, pillWin = null, tray = null, quitting = false;
 let snap = { kind: "idle" };   // the latest pill snapshot from the app
 let presence = { focused: true, visible: true };
+let shown = true;   // the main window is on screen (its animation loops skip drawing when it is not)
 
 /* ---------- single instance ---------- */
 if (!app.requestSingleInstanceLock()) { app.quit(); }
@@ -142,6 +143,7 @@ function createMain() {
   ["maximize", "unmaximize", "enter-full-screen", "leave-full-screen", "restore"].forEach((ev) => win.on(ev, () => { sendState(); rememberWindow(); }));
   ["resize", "move"].forEach((ev) => win.on(ev, rememberWindow));
   win.webContents.on("did-finish-load", sendState);
+  win.webContents.on("did-finish-load", () => { if (!shown) win.webContents.send("win:visible", false); });
 
   win.on("minimize", () => { if (busy() && state.prefs.pillOnMinimise) openPill(); });
   win.on("close", (e) => {
@@ -183,6 +185,8 @@ function busy() { return snap.kind === "flight" || snap.kind === "layover"; }
 
 /* ---------- presence: is SkyFocus (or its pill) in front, and is it on screen at all ---------- */
 function checkFocus() {
+  const s = !!(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
+  if (s !== shown) { shown = s; if (win && !win.isDestroyed()) win.webContents.send("win:visible", s); }
   const f = BrowserWindow.getFocusedWindow();
   const p = {
     focused: !!f && (f === win || f === pillWin),
@@ -300,23 +304,24 @@ function createTray() {
   tray.setContextMenu(trayMenu());
   tray.on("click", showMain);
 }
-let lastTrayKey = "", lastTip = "";
+let lastTrayKey = "", lastTip = "", shellTip = null, shellBar = null;
 function updateShell() {
   // tray tooltip and menu
   let tip = "SkyFocus";
   if (snap.kind === "flight") tip = snap.from + " to " + snap.to + " · " + fmtLeft(snap.remainingMs) + " left" + (snap.holding ? " · holding" : "");
   else if (snap.kind === "layover") tip = "Layover at " + snap.at + " · " + fmtLeft(snap.remainingMs) + " left";
   if (TEST && tip !== lastTip) { lastTip = tip; if (!/\d\d:\d\d|\dh/.test(tip) || Math.random() < .1) testLog("tray " + tip + " | progress " + (snap.progress || 0).toFixed(3) + (snap.holding ? " paused" : "")); }
+  if (tray && tip !== shellTip) { shellTip = tip; tray.setToolTip(tip); }
   if (tray) {
-    tray.setToolTip(tip);
     const key = snap.kind + (snap.holding ? "h" : "");
     if (key !== lastTrayKey) { lastTrayKey = key; tray.setContextMenu(trayMenu()); }
   }
   // taskbar progress, paused while holding
   if (win && !win.isDestroyed()) {
-    if (snap.kind === "flight") win.setProgressBar(Math.max(.01, snap.progress), { mode: snap.holding ? "paused" : "normal" });
-    else if (snap.kind === "layover") win.setProgressBar(Math.max(.01, snap.progress), { mode: "normal" });
-    else win.setProgressBar(-1);
+    const bar = snap.kind === "flight" ? [Math.max(.01, snap.progress), snap.holding ? "paused" : "normal"]
+      : snap.kind === "layover" ? [Math.max(.01, snap.progress), "normal"] : [-1, ""];
+    const key = bar.join("|");
+    if (key !== shellBar) { shellBar = key; if (bar[0] < 0) win.setProgressBar(-1); else win.setProgressBar(bar[0], { mode: bar[1] }); }
   }
 }
 function command(c) {

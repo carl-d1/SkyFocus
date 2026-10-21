@@ -245,28 +245,34 @@
       };
 
       /* ---------- instruments ---------- */
-      var lastPhase = null, lastLong = null, lastAlt = null, lastT = 0, vs = 0;
+      var lastPhase = null, lastLong = null, lastAlt = null, lastT = 0, vs = 0, shown = {}, lastHeld = null;
+      function put(id, prop, v) {
+        var k = id + "." + prop;
+        if (shown[k] === v) return;
+        shown[k] = v;
+        if (prop === "text") $(id).textContent = v; else $(id).style[prop] = v;
+      }
       function render(st) {
         var cur = SF.store.state.activeFlight;
         if (!cur) return;
-        $("remain").textContent = SF.fmt.clock(st.remainingMs);
+        put("remain", "text", SF.fmt.clock(st.remainingMs));
         var long = st.remainingMs >= 3600000;
         if (long !== lastLong) {
           lastLong = long;
           root.querySelector(".time-well").classList.toggle("long", long);
         }
-        $("pct").textContent = Math.floor(st.progress * 100) + "%";
+        put("pct", "text", Math.floor(st.progress * 100) + "%");
         var lit = Math.floor(st.progress * SEGMENTS);
-        segs.forEach(function (s, i) { s.className = i < lit ? "on" : i === lit && st.progress < 1 ? "now" : ""; });
+        segs.forEach(function (s, i) { var c = i < lit ? "on" : i === lit && st.progress < 1 ? "now" : ""; if (s.className !== c) s.className = c; });
         var phase = st.paused ? lastPhase : st.phase;
         if (!st.paused) lastPhase = st.phase;
         ui.$$("#annun span", root).forEach(function (s) { s.classList.toggle("on", s.getAttribute("data-p") === phase); });
         $("holdLamp").classList.toggle("on", st.paused);
         // altitude tape: 0 ft sits at index (44000 / 500); centre the current altitude
         var altIdx = (44000 - st.altitudeFt) / ALT_STEP;
-        $("altTape").style.transform = "translateY(" + (-altIdx * ALT_PX) + "rem)";
-        $("alt").textContent = String(Math.round(st.altitudeFt / 10) * 10).padStart(5, " ");
-        $("gs").textContent = String(st.groundSpeedKt).padStart(3, " ");
+        put("altTape", "transform", "translateY(" + (-altIdx * ALT_PX) + "rem)");
+        put("alt", "text", String(Math.round(st.altitudeFt / 10) * 10).padStart(5, " "));
+        put("gs", "text", String(st.groundSpeedKt).padStart(3, " "));
         // Vertical speed from the altitude change, smoothed and rounded like a real VSI.
         var nowT = Date.now();
         if (lastAlt !== null && nowT > lastT) {
@@ -277,18 +283,18 @@
         }
         lastAlt = st.altitudeFt; lastT = nowT;
         var vsr = Math.round(vs / 100) * 100;
-        $("vs").textContent = vsr === 0 ? "0" : (vsr > 0 ? "+" : "−") + Math.abs(vsr).toLocaleString();
+        put("vs", "text", vsr === 0 ? "0" : (vsr > 0 ? "+" : "−") + Math.abs(vsr).toLocaleString());
         var hdg = Math.round(st.heading) % 360;
-        $("hdgTape").style.transform = "translateX(" + (-(hdg + 180) / HDG_STEP * HDG_PX) + "rem)";
-        $("hdg").textContent = String(hdg).padStart(3, "0") + "°";
-        $("flown").textContent = SF.fmt.dist(st.flownKm);
-        $("remKm").textContent = SF.fmt.dist(st.remainingKm);
-        $("eta").textContent = SF.fmt.time(st.eta);
-        $("etaLocal").textContent = SF.fmt.localTime(B.tz, st.eta);
+        put("hdgTape", "transform", "translateX(" + (-(hdg + 180) / HDG_STEP * HDG_PX) + "rem)");
+        put("hdg", "text", String(hdg).padStart(3, "0") + "°");
+        put("flown", "text", SF.fmt.dist(st.flownKm));
+        put("remKm", "text", SF.fmt.dist(st.remainingKm));
+        put("eta", "text", SF.fmt.time(st.eta));
+        put("etaLocal", "text", SF.fmt.localTime(B.tz, st.eta));
         var used = cur.holds, max = SF.flight.maxHolds(cur);
-        $("holdTxt").textContent = st.paused ? "Resume" : "Hold";
-        $("holdsLeft").textContent = st.paused ? "HOLD " + used + " OF " + max + " · " + SF.fmt.clock(st.holdLeftMs) : used + " OF " + max + " USED";
-        $("holdBtn").querySelector(".icon").outerHTML = SF.icon(st.paused ? "play" : "pause");
+        put("holdTxt", "text", st.paused ? "Resume" : "Hold");
+        put("holdsLeft", "text", st.paused ? "HOLD " + used + " OF " + max + " · " + SF.fmt.clock(st.holdLeftMs) : used + " OF " + max + " USED");
+        if (lastHeld !== !!st.paused) { lastHeld = !!st.paused; $("holdBtn").querySelector(".icon").outerHTML = SF.icon(st.paused ? "play" : "pause"); }
         $("holdBtn").classList.toggle("btn-signal", st.paused);
         $("holdBtn").disabled = !st.paused && used >= max;
         root.querySelector(".strip").classList.toggle("is-holding", st.paused);

@@ -113,33 +113,38 @@
         for (var i = 0; i < n; i++) html += '<i class="' + (i < j.index ? "done" : i === j.index ? "now" : "") + '"></i>';
         return html + (j.count > 8 ? "<em>+" + (j.count - 8) + "</em>" : "");
       }
+      var was = {};
+      function text(n, v) { if (was[n] !== v) { was[n] = v; el[n].textContent = v; } }
       function update(s) {
         snap = s || { kind: "idle" };
         var k = snap.kind;
         pill.setAttribute("data-kind", k);
         pill.classList.toggle("holding", !!snap.holding);
-        var frac = Math.max(0, Math.min(1, snap.progress || 0));
-        el.ring.setAttribute("stroke-dashoffset", (CIRC * (1 - frac)).toFixed(2));
-        if (k === "idle") { el.time.textContent = ""; return; }
-        el.time.textContent = fmt(snap.remainingMs);
+        var frac = Math.max(0, Math.min(1, snap.progress || 0)), ring = (CIRC * (1 - frac)).toFixed(2);
+        if (was.ring !== ring) { was.ring = ring; el.ring.setAttribute("stroke-dashoffset", ring); }
+        if (k === "idle") { text("time", ""); return; }
+        text("time", fmt(snap.remainingMs));
         el.time.classList.toggle("long", snap.remainingMs >= 3600000);
-        el.dots.innerHTML = dots(snap.journey);
+        var d = dots(snap.journey);
+        if (was.dots !== d) { was.dots = d; el.dots.innerHTML = d; }
         if (k === "flight") {
-          el.from.textContent = snap.from; el.to.textContent = snap.to;
-          el.phase.textContent = snap.holding ? "HOLD" : snap.phase || "";
-          var rf = Math.max(0, Math.min(1, snap.routeFrac || 0));
-          el.fill.style.width = (rf * 100).toFixed(2) + "%";
-          el.plane.style.left = (rf * 100).toFixed(2) + "%";
-          el.note.textContent = snap.journey && snap.journey.count ? "LEG " + (snap.journey.index + 1) + " OF " + snap.journey.count : snap.flightNo || "";
-          el.hold.innerHTML = snap.holding ? ICON.resume : ICON.hold;
+          text("from", snap.from); text("to", snap.to);
+          text("phase", snap.holding ? "HOLD" : snap.phase || "");
+          var rf = Math.max(0, Math.min(1, snap.routeFrac || 0)), pc = (rf * 100).toFixed(2) + "%";
+          if (was.fill !== pc) { was.fill = pc; el.fill.style.width = pc; }
+          if (was.plane !== pc) { was.plane = pc; el.plane.style.left = pc; }
+          text("note", snap.journey && snap.journey.count ? "LEG " + (snap.journey.index + 1) + " OF " + snap.journey.count : snap.flightNo || "");
+          var hi = snap.holding ? ICON.resume : ICON.hold;
+          if (was.hold !== hi) { was.hold = hi; el.hold.innerHTML = hi; }
           el.hold.title = snap.holding ? "Resume" : "Hold";
           el.hold.disabled = !snap.holding && snap.holdsLeft === 0;
         } else if (k === "layover") {
-          el.from.textContent = snap.at;
-          el.to.textContent = snap.next ? "NEXT: " + snap.next : "LAYOVER";
-          el.phase.textContent = "BREAK";
-          el.fill.style.width = (frac * 100).toFixed(2) + "%";
-          el.note.textContent = snap.journey && snap.journey.count ? "LEG " + (snap.journey.index + 1) + " OF " + snap.journey.count + " NEXT" : "LAYOVER";
+          text("from", snap.at);
+          text("to", snap.next ? "NEXT: " + snap.next : "LAYOVER");
+          text("phase", "BREAK");
+          var lf = (frac * 100).toFixed(2) + "%";
+          if (was.fill !== lf) { was.fill = lf; el.fill.style.width = lf; }
+          text("note", snap.journey && snap.journey.count ? "LEG " + (snap.journey.index + 1) + " OF " + snap.journey.count + " NEXT" : "LAYOVER");
           el.hold.disabled = true;
         }
       }

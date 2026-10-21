@@ -108,7 +108,7 @@
     var io = window.IntersectionObserver ? new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }) : null;
     function frame(now) {
       raf = requestAnimationFrame(frame);
-      if (!visible || document.hidden) { last = now; return; }
+      if (!visible || SF.offstage()) { last = now; return; }
       resize();
       var t = (now - t0) / 1000, dt = Math.min(.05, (now - last) / 1000);
       last = now;

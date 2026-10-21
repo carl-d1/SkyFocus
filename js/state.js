@@ -8,6 +8,9 @@
   SF.forceOffline = params.get("offline") === "1";
   SF.isFile = window.location.protocol === "file:";
   // Time scale for new flights and layovers: 60x in dev mode or with the hidden test switch in Settings.
+  // Animation loops skip drawing while they cannot be seen: the desktop window is minimised or in the
+  // tray, the page is hidden, or a takeoff or landing scene covers the screen. Flights and timers keep running.
+  SF.offstage = function () { return document.hidden || SF.appVisible === false || !!(SF.scenes && SF.scenes.covering && SF.scenes.covering()); };
   SF.speed = function () { return SF.dev || (SF.store && SF.store.state.settings.devSpeed) ? 60 : 1; };
 
   // Seat-map class names are SkyFocus originals.

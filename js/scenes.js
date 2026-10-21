@@ -646,6 +646,8 @@
   var active = null;
   SF.scenes = {
     get playing() { return !!active; },
+    // a scene fills the screen (until it starts to fade out)
+    covering: function () { return !!active && !active.done; },
     enabled: function () { return !!(SF.store && SF.store.state.settings.scenes !== false); },
     // Start fetching three.js early so the scene opens without a wait.
     preload: function () {
@@ -690,6 +692,7 @@
         function end() {
           if (ended) return;
           ended = true;
+          if (handle) handle.done = true;
           cancelAnimationFrame(raf);
           window.removeEventListener("keydown", key, true);
           window.removeEventListener("resize", resize);

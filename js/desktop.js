@@ -97,6 +97,7 @@
      visible: the main window is on screen, or the pill is. focused: SkyFocus or its pill is the
      active app. In airplane mode leaving focus counts as turbulence; otherwise only leaving view. */
   SF.engine.presenceFromHost = true;
+  if (D.onVisible) D.onVisible(function (v) { SF.appVisible = !!v; });
   D.onPresence(function (p) {
     var af = SF.store.state.activeFlight;
     if (!p || !af) return;
