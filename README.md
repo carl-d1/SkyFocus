@@ -57,6 +57,40 @@ Example: `http://localhost:8080/?dev=1`
 
 Design rules (materials, spacing scale, layout grid, copy) are in [DESIGN.md](DESIGN.md).
 
+## YPT link (Android)
+
+SkyFocus can start and stop YPT on your phone, so you never pick it up to start a session. YPT has no public API, so the link goes through [MacroDroid](https://www.macrodroid.com) (free; two macros) on the phone: SkyFocus calls a webhook URL, the phone wakes, waits for you to unlock it, opens YPT and taps the button.
+
+**On the phone (once):**
+
+1. Install MacroDroid and allow its accessibility service (it needs it to tap buttons in YPT).
+2. New macro **SkyFocus start**. Trigger: **Webhook (URL)**, identifier `skyfocus-start`. Copy the URL it shows. Actions, in this order:
+   1. **Cancel Macro Actions**: SkyFocus stop (so a quick start then stop can never run both).
+   2. **Screen On**.
+   3. **Wait Until Trigger: Device Unlocked**, timeout 2 minutes. On timeout the macro cancels and does nothing.
+   4. **Launch Application**: YPT.
+   5. **Wait Until Trigger: Screen Content**, matching the text of YPT's Start button, timeout 10 seconds.
+   6. **If** that screen content is visible: **UI Interaction, Click** on YPT's Start button (pick it with MacroDroid's identify tool). If it is not visible, nothing is clicked, so a mismatched state never taps the wrong thing.
+3. New macro **SkyFocus stop**. Trigger: **Webhook (URL)**, identifier `skyfocus-stop`. Copy the URL. Actions:
+   1. **Cancel Macro Actions**: SkyFocus start.
+   2. **Screen On**.
+   3. **Wait Until Trigger: Device Unlocked**, timeout **60 minutes**, so YPT still stops when you pick the phone up long after landing.
+   4. **Launch Application**: YPT.
+   5. **Wait Until Trigger: Screen Content**, matching the text of YPT's Stop button, timeout 10 seconds.
+   6. **If** it is visible: **UI Interaction, Click** on Stop. Otherwise nothing.
+
+**In SkyFocus:** Settings, **YPT link**. Paste both URLs, turn the link on and press **Test start**. The desktop app reports "Reached your phone's MacroDroid"; the browser version can only report "Sent".
+
+**What happens:**
+
+- At the gate the first check reads "Unlock phone when it wakes, YPT starts itself". It ticks itself once the start link has gone out, then Board unlocks as usual. **Send again** repeats it; if the link fails you can tick it by hand.
+- YPT stops when you land, divert, end a journey, press Change booking at the gate, or quit the desktop app during a flight.
+- **Pause YPT during holds** (off by default) stops and restarts YPT around each hold.
+- **Keep YPT running through layovers** (off by default) keeps one YPT session across a whole journey.
+- After a restart SkyFocus brings the phone in line once: start if a flight is under way, stop if nothing is flying.
+
+The URLs work like passwords: anyone with them can start or stop your YPT. They are kept apart from your flight data, so **Export JSON and Backup now never include them**, and Settings shows them masked. The desktop app keeps them in `desktop-state.json`, the browser under its own storage key. The link needs internet on both ends. If YPT redesigns its Start or Stop button, pick the button again in the macros.
+
 ## Keyboard shortcuts
 
 | Key | Action |

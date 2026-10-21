@@ -75,3 +75,4 @@ Local data: `js/data-airports.js` (445 airports), `js/data-world.js` (Natural Ea
 | Offline | Everything except map tiles; the built-in map shows "Offline" |
 | Security | No Node in pages, CSP, external links in the default browser |
 | Single instance | A second launch focuses the running window |
+| YPT link | MacroDroid webhooks start YPT at the gate and stop it on landing, diversion, journey end, Change booking and quit; URLs kept in `desktop-state.json`, never in exports or backups; options for holds and layovers |
