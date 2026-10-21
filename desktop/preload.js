@@ -36,6 +36,11 @@ contextBridge.exposeInMainWorld("skyfocusDesktop", {
     set: (urls) => ipcRenderer.invoke("ypt:set", urls),
     send: (kind) => ipcRenderer.invoke("ypt:send", kind)
   },
+  // glass refraction map cache (a cache only: never the app data)
+  glassMaps: {
+    load: () => ipcRenderer.sendSync("glass:load"),
+    save: (text) => ipcRenderer.send("glass:save", String(text))
+  },
   // app data, kept in a file the main process writes at once
   storage: {
     load: () => ipcRenderer.sendSync("data:load"),

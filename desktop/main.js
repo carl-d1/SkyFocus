@@ -389,6 +389,16 @@ ipcMain.handle("ypt:set", (e, u) => {
   return yptLink();
 });
 ipcMain.handle("ypt:send", (e, kind) => (fromMain(e) && (kind === "start" || kind === "stop")) ? yptSend(kind) : null);
+// glass refraction maps cached between launches (rebuilt on demand if this file is missing)
+const GLASS_FILE = () => path.join(app.getPath("userData"), "glass-maps.json");
+ipcMain.on("glass:load", (e) => {
+  if (!fromMain(e)) { e.returnValue = null; return; }
+  try { e.returnValue = fs.readFileSync(GLASS_FILE(), "utf8") || null; } catch (err) { e.returnValue = null; }
+});
+ipcMain.on("glass:save", (e, text) => {
+  if (!fromMain(e) || typeof text !== "string" || text.length > 3e6) return;
+  fs.promises.writeFile(GLASS_FILE() + ".tmp", text).then(() => fs.promises.rename(GLASS_FILE() + ".tmp", GLASS_FILE())).catch(() => { /* only a cache */ });
+});
 ipcMain.handle("app:firstRun", (e) => fromMain(e) ? !state.firstRunDone : false);
 ipcMain.on("app:firstRunDone", (e) => { if (fromMain(e)) { state.firstRunDone = true; saveState(); } });
 
