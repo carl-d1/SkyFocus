@@ -33,7 +33,7 @@ const TEST = !!process.env.SKYFOCUS_SHOT;   // automated capture run (see the te
 
 app.setAppUserModelId("au.com.hyetech.skyfocus");
 if (process.env.SKYFOCUS_USERDATA) app.setPath("userData", process.env.SKYFOCUS_USERDATA);   // isolated test profiles
-protocol.registerSchemesAsPrivileged([{ scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true, codeCache: true } }]);
 
 /* ---------- small persisted state: window bounds, pill position, desktop preferences ---------- */
 const STATE_FILE = () => path.join(app.getPath("userData"), "desktop-state.json");
@@ -60,12 +60,33 @@ if (!app.requestSingleInstanceLock()) { app.quit(); }
 else app.on("second-instance", () => showMain());
 
 /* ---------- serving the app ---------- */
+const MIME = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg", ".ico": "image/x-icon", ".woff2": "font/woff2", ".webp": "image/webp"
+};
+const vendorCache = new Map();   // vendor files never change while the app runs
 function serve() {
   protocol.handle(SCHEME, async (req) => {
     const u = new URL(req.url);
     let rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || "index.html";
     const file = path.normalize(path.join(ROOT, rel));
     if (!file.startsWith(ROOT)) return new Response("Not found", { status: 404 });
+    const type = MIME[path.extname(file).toLowerCase()];
+    if (TEST && process.env.SKYFOCUS_LOG_SERVE) testLog("serve " + rel);
+    // known types are read straight from disk; media (which may ask for byte ranges) and anything else go through net.fetch
+    if (type && !req.headers.get("range")) {
+      try {
+        const vendor = rel.startsWith("vendor/");
+        let body = vendor ? vendorCache.get(file) : null;
+        if (!body) { body = await fs.promises.readFile(file); if (vendor) vendorCache.set(file, body); }
+        const headers = { "Content-Type": type, "Content-Length": String(body.length) };
+        if (/\.html?$/i.test(file)) headers["Content-Security-Policy"] = CSP;
+        return new Response(body, { status: 200, headers });
+      } catch (e) {
+        return new Response("Not found", { status: 404 });
+      }
+    }
     try {
       const res = await net.fetch(pathToFileURL(file).toString());
       if (!res.ok) return res;
@@ -92,7 +113,7 @@ function guard(wc) {
   wc.session.setPermissionRequestHandler((w, perm, cb) => cb(perm === "notifications" || perm === "fullscreen"));
 }
 function prefsFor(preload) {
-  return { preload: path.join(__dirname, preload), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, autoplayPolicy: "no-user-gesture-required", backgroundThrottling: false };
+  return { preload: path.join(__dirname, preload), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, autoplayPolicy: "no-user-gesture-required", backgroundThrottling: false, v8CacheOptions: "bypassHeatCheck" };
 }
 
 /* ---------- main window ---------- */

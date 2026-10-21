@@ -98,16 +98,17 @@
 
     // Unlock what has been earned. Unless silent, queue the new cards for celebrate().
     evaluate: function (rec, silent) {
-      var c = context(), now = Date.now(), fresh = [], tierUp = null;
-      SF.store.update(function (s) {
-        DEFS.forEach(function (d) {
-          if (s.achievements[d.id]) return;
-          var p = d.test(c);
-          if (p[0] >= p[1]) { s.achievements[d.id] = { at: now, flightId: rec ? rec.id : null }; fresh.push(d); }
-        });
-        var t = tierFor(c.t.miles);
-        if (!s.tierSeen) s.tierSeen = "contrail";
-        if (tierIndex(t.id) > tierIndex(s.tierSeen)) tierUp = t;
+      var c = context(), now = Date.now(), fresh = [], tierUp = null, s0 = SF.store.state;
+      DEFS.forEach(function (d) {
+        if (s0.achievements[d.id]) return;
+        var p = d.test(c);
+        if (p[0] >= p[1]) fresh.push(d);
+      });
+      var t = tierFor(c.t.miles);
+      if (tierIndex(t.id) > tierIndex(s0.tierSeen || "contrail")) tierUp = t;
+      // nothing new: no store update and no save
+      if (fresh.length || s0.tierSeen !== t.id) SF.store.update(function (s) {
+        fresh.forEach(function (d) { s.achievements[d.id] = { at: now, flightId: rec ? rec.id : null }; });
         s.tierSeen = t.id;
       }, true);
       if (!silent) {
@@ -183,6 +184,9 @@
     preview: function (item) { queue.push(item); return A.celebrate(); }
   });
 
-  // Bring older logs up to date without fanfare.
-  if (SF.store && SF.store.state.profile.onboarded) A.evaluate(null, true);
+  // Bring older logs up to date without fanfare, once the first screen is up.
+  if (SF.store && SF.store.state.profile.onboarded) {
+    if (window.requestIdleCallback) requestIdleCallback(function () { A.evaluate(null, true); }, { timeout: 1500 });
+    else setTimeout(function () { A.evaluate(null, true); }, 300);
+  }
 })();

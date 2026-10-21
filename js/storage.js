@@ -33,7 +33,7 @@
 
   // The desktop app keeps its data in a file written straight to disk by the main process, so a
   // crash or a forced close never loses a flight (localStorage reaches the disk only lazily).
-  var file = window.skyfocusDesktop && window.skyfocusDesktop.storage;
+  var file = window.skyfocusDesktop && window.skyfocusDesktop.storage, pendingCopy = null;
 
   SF.storage = {
     KEY: KEY,
@@ -48,8 +48,16 @@
     save: function (obj) {
       try {
         var text = JSON.stringify(obj);
-        if (file) file.save(text);
-        return write(KEY, text);
+        if (!file) return write(KEY, text);
+        file.save(text);
+        // the backup copy in localStorage waits for an idle moment; the newest text wins
+        var first = pendingCopy === null;
+        pendingCopy = text;
+        if (first) {
+          var flush = function () { var t = pendingCopy; pendingCopy = null; if (t !== null) write(KEY, t); };
+          if (window.requestIdleCallback) requestIdleCallback(flush, { timeout: 2000 }); else setTimeout(flush, 200);
+        }
+        return true;
       } catch (e) { return false; }
     },
     clear: function () { remove(KEY); if (file) file.save(""); },

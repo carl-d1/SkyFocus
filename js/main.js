@@ -148,14 +148,16 @@
   function boot() {
     ui.applyTheme();
     SF.glass.init();
-    // Dim world map behind document screens.
-    try { SF.FallbackMap(document.getElementById("backdrop"), { camera: "world", showPlane: false, label: "World map", instant: true }); } catch (e) { console.warn(e); }
     ui.buildNav();
     ui.fileBanner();
     window.addEventListener("hashchange", ui.render);
     if (new URLSearchParams(location.search).get("lab") === "1") { location.hash = "#/lab"; ui.render(); }
     else if (SF.dev && new URLSearchParams(location.search).get("demo")) { seedDemo(new URLSearchParams(location.search).get("demo")); ui.render(); }
     else { ui.render(); resumePrompt(); }
+    // Dim world map behind document screens, built once the first screen has painted.
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      try { SF.FallbackMap(document.getElementById("backdrop"), { camera: "world", showPlane: false, label: "World map", instant: true }); } catch (e) { console.warn(e); }
+    }); });
     if (SF.dev) console.info("SkyFocus dev mode: flights run 60× faster.");
     // dev: &unlock=tier or &unlock=ach shows a celebration card
     var un = SF.dev && new URLSearchParams(location.search).get("unlock");
