@@ -294,9 +294,16 @@
         if (el.getAttribute("data-code") === sel.to) { mapObj.api.setPreview(null); return; }
         mapObj.api.setPreview({ from: SF.airport(sel.from), to: SF.airport(el.getAttribute("data-code")) });
       }
+      // #view is shared by every screen: these listeners are removed in unmount
+      function leave() { previewKey = null; renderMinutes(); if (mapObj) mapObj.api.setPreview(null); }
       root.addEventListener("pointerover", preview);
       root.addEventListener("focusin", preview);
-      root.addEventListener("pointerleave", function () { previewKey = null; renderMinutes(); if (mapObj) mapObj.api.setPreview(null); });
+      root.addEventListener("pointerleave", leave);
+      var offRoot = function () {
+        root.removeEventListener("pointerover", preview);
+        root.removeEventListener("focusin", preview);
+        root.removeEventListener("pointerleave", leave);
+      };
 
       function reveal() {
         if (mapObj) { previewKey = null; mapObj.api.setPreview(null); }
@@ -517,7 +524,7 @@
       else if (sel.mode === "time") pick(true);
       else reveal();
       var hero = SF.hero.mount($("bookHero"), { view: "side" });
-      this._cleanup = function () { hero.destroy(); if (mapObj) mapObj.api.destroy(); };
+      this._cleanup = function () { offRoot(); hero.destroy(); if (mapObj) mapObj.api.destroy(); };
     },
     unmount: function () { if (this._cleanup) this._cleanup(); }
   };

@@ -110,7 +110,7 @@
         var d = A.DEFS.filter(function (x) { return x.id === b.getAttribute("data-id"); })[0];
         if (d) A.preview({ kind: "ach", def: d });
       };
-      SF.motion.tilt(root.querySelector("#cardBtn"), 6);
+      self._untilt = SF.motion.tilt(root.querySelector("#cardBtn"), 6);
 
       /* ---------- data for the charts ---------- */
       var byDay = SF.stats.byDay(), dl = [], dv = [];
@@ -180,6 +180,8 @@
     },
     unmount: function () {
       this._token = null;
+      if (this._untilt) this._untilt();
+      this._untilt = null;
       (this._charts || []).forEach(function (c) { try { c.destroy(); } catch (e) { /* gone */ } });
       this._charts = [];
       if (this._map) this._map.api.destroy();

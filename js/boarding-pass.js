@@ -188,13 +188,15 @@
         requestAnimationFrame(function () { requestAnimationFrame(function () { btn.classList.add("run"); }); });
         var autoT = setTimeout(function () { btn.classList.remove("auto-board", "run"); btn.click(); }, 5000);
         timers.push(autoT);
-        root.addEventListener("pointerdown", function stop(e) {
+        var stop = function (e) {
           if (e.target.closest("#boardBtn")) return;
           clearTimeout(autoT);
           btn.classList.remove("auto-board", "run");
           btn.querySelector("span").textContent = "Board";
           root.removeEventListener("pointerdown", stop);
-        });
+        };
+        root.addEventListener("pointerdown", stop);
+        self._offStop = function () { root.removeEventListener("pointerdown", stop); };   // #view outlives this screen
       }
 
       root.querySelector("#boardBtn").onclick = function () {
@@ -235,6 +237,8 @@
       (this._timers || []).forEach(function (t) { clearTimeout(t); clearInterval(t); });
       if (this._untilt) this._untilt();
       this._untilt = null;
+      if (this._offStop) this._offStop();
+      this._offStop = null;
     }
   };
 })();
