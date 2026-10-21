@@ -101,6 +101,10 @@
       var timers = [];
       var self = this;
       self._timers = timers;
+      // YPT link on: the first check becomes the phone's own start, ticked once the link is sent
+      var yptOn = s.dndChecklist && SF.ypt && SF.ypt.on();
+      var dnd = DND.slice();
+      if (yptOn) dnd[0] = "Unlock phone when it wakes, YPT starts itself";
       var guard = { off: "Off", warn: "Warn on exit", divert: "Divert after " + s.strictMinutes + " min away" }[s.strictness];
 
       ui.topbar(ui.topbarTitle("Gate " + af.gate + " · " + af.from + " → " + af.to) + (af.journeyId ? '<span class="leg-tag">' + SF.journey.legLabel(af) + "</span>" : ""),
@@ -108,8 +112,9 @@
       root.innerHTML =
         '<div class="gate-grid"><div class="pass-wrap" id="passWrap"></div>' +
         '<aside class="glass gate-side">' +
-        (s.dndChecklist ? '<h3>Pre-departure check</h3><ul class="checklist" id="dnd">' + DND.map(function (d, i) {
-          return '<li><label><input type="checkbox" data-i="' + i + '"><span class="tick">' + SF.icon("check") + "</span><span>" + d + "</span></label></li>";
+        (s.dndChecklist ? '<h3>Pre-departure check</h3><ul class="checklist" id="dnd">' + dnd.map(function (d, i) {
+          return '<li><label><input type="checkbox" data-i="' + i + '"><span class="tick">' + SF.icon("check") + "</span><span>" + d + "</span></label>" +
+            (yptOn && i === 0 ? '<div class="ypt-line"><span id="yptStatus">Waking your phone</span><button type="button" class="btn btn-text small" id="yptAgain">Send again</button></div>' : "") + "</li>";
         }).join("") + "</ul>" : "") +
         '<label class="switch"><input type="checkbox" id="apMode"><span class="track"><span class="thumb"></span></span><span><b>Airplane mode</b><small>Fullscreen. Non-essential UI hidden. Key F.</small></span></label>' +
         '<p class="small-print">' + SF.icon("shield") + "Guard <b>" + guard + "</b> · Holds <b>" + SF.flight.maxHolds(af) + "</b></p>" +
@@ -133,6 +138,19 @@
       }
       checks.forEach(function (c) { c.addEventListener("change", checkGate); });
       checkGate();
+      if (yptOn) {
+        var yStat = root.querySelector("#yptStatus");
+        var yptStart = function (again) {
+          yStat.textContent = "Waking your phone";
+          (again ? SF.ypt.test("start") : SF.ypt.send("start")).then(function (how) {
+            yStat.textContent = how === "already" ? "YPT is already running" : how === "sent" ? "Sent to your phone" : "Your phone got it";
+            checks[0].checked = true;
+            checkGate();
+          }, function () { yStat.textContent = "Not sent. Tick this once YPT runs."; });
+        };
+        yptStart(false);
+        root.querySelector("#yptAgain").onclick = function () { yptStart(true); };
+      }
       // flip card: front and reverse, turned with a spring and tilted toward the pointer
       var flipBox = ui.h('<div class="pass-flip"><div class="pass-card" role="button" tabindex="0" aria-label="Turn the boarding pass over"></div></div>');
       var card = flipBox.firstChild;
@@ -157,6 +175,7 @@
         // leaving the gate during a journey ends the journey (no leg is lost: this one has not departed)
         if (af.journeyId && SF.journey.active()) SF.journey.end();
         SF.engine.cancel(); ui.go("book");
+        if (yptOn) SF.ypt.send("stop").catch(function () { /* toast shown */ });
       };
       // Journey legs started by the layover timer board on their own after a short delay (a bar fills
       // the Board button; touching anything else cancels it).
