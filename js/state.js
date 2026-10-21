@@ -37,6 +37,7 @@
         windowView: false,
         devSpeed: false,
         notify: { landing: true, layover: true, legs: true },
+        ypt: { enabled: false, holds: false, layovers: false },
         sounds: true,
         strictness: "warn",
         strictMinutes: 3,
@@ -70,6 +71,7 @@
     out.settings = Object.assign(defaults().settings, data.settings || {});
     out.settings.journey = Object.assign(defaults().settings.journey, (data.settings && data.settings.journey) || {});
     out.settings.notify = Object.assign(defaults().settings.notify, (data.settings && data.settings.notify) || {});
+    out.settings.ypt = Object.assign(defaults().settings.ypt, (data.settings && data.settings.ypt) || {});
     out.ui = Object.assign(defaults().ui, data.ui || {});
     if (!Array.isArray(out.tags) || !out.tags.length) out.tags = defaults().tags;
     if (!Array.isArray(out.flights)) out.flights = [];
