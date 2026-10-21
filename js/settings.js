@@ -68,6 +68,21 @@
           '<label class="field" id="strictRow"' + (s.strictness === "divert" ? "" : " hidden") + '><span class="label">Divert after minutes away</span><input type="number" id="sStrictMin" min="1" max="60" value="' + s.strictMinutes + '"></label>' +
           "</section>" +
 
+          // YPT link: two MacroDroid webhooks; the URLs are kept outside the app data and shown masked
+          '<section class="glass set-sec" id="yptSec"><h2>' + SF.icon("target") + "YPT link</h2>" +
+          '<p class="muted">Starts and stops YPT on your Android phone, so you never pick it up. On the phone: MacroDroid with two macros on a Webhook trigger, <span class="mono">skyfocus-start</span> and <span class="mono">skyfocus-stop</span>. Full steps in the README.</p>' +
+          toggle("yOn", s.ypt.enabled, "YPT link", "Start YPT at the gate, stop it when you land or divert.") +
+          ['start', 'stop'].map(function (k) {
+            return '<label class="field"><span class="label">' + (k === "start" ? "Start" : "Stop") + ' URL</span><div class="inline-row ypt-url">' +
+              '<input type="password" id="y' + k + '" autocomplete="off" spellcheck="false" placeholder="https://trigger.macrodroid.com/..." aria-label="YPT ' + k + ' URL">' +
+              '<button type="button" class="btn small" data-show="y' + k + '">Show</button></div></label>';
+          }).join("") +
+          toggle("yHolds", s.ypt.holds, "Pause YPT during holds", "Off keeps one YPT session per flight.") +
+          toggle("yLay", s.ypt.layovers, "Keep YPT running through layovers", "During a journey, stop only when the journey ends.") +
+          '<div class="row-btns"><button class="btn small" id="yTestStart">' + SF.icon("play") + '<span>Test start</span></button><button class="btn small" id="yTestStop">' + SF.icon("pause") + "<span>Test stop</span></button></div>" +
+          '<p class="muted small" id="yResult" aria-live="polite"></p>' +
+          "</section>" +
+
           '<section class="glass set-sec"><h2>' + SF.icon("tag") + 'Tags</h2><ul class="tag-list">' + S.tags.map(function (t) {
             return '<li><span class="tag-pill" style="--tag:' + t.color + '">' + SF.esc(t.name) + '</span><small class="muted">' + SF.esc(t.builtin ? t.cls : "Open Cabin") + "</small>" +
               '<button class="btn icon-only small" data-edit="' + t.id + '" aria-label="Edit ' + SF.esc(t.name) + '">' + SF.icon("pen") + "</button>" +
@@ -162,6 +177,35 @@
         root.querySelector("#setMix").innerHTML = SF.audio.mixerHTML();
         SF.audio.bindMixer(root.querySelector("#setMix"));
         root.querySelector("#sndTest").onclick = function () { SF.audio.unlock(); SF.audio.chime(); };
+        // YPT link
+        var yStart = root.querySelector("#ystart"), yStop = root.querySelector("#ystop"), yRes = root.querySelector("#yResult");
+        SF.ypt.getUrls().then(function (u) { yStart.value = u.startUrl; yStop.value = u.stopUrl; });
+        yStart.onchange = yStop.onchange = function () {
+          var bad = [yStart, yStop].filter(function (el) { return el.value.trim() && !/^https:\/\/\S+$/i.test(el.value.trim()); });
+          if (bad.length) { yRes.textContent = "Links must start with https://"; return; }
+          yRes.textContent = "";
+          SF.ypt.setUrls({ startUrl: yStart.value, stopUrl: yStop.value }).then(saved);
+        };
+        ui.$$("[data-show]", root).forEach(function (b) {
+          b.onclick = function () {
+            var el = root.querySelector("#" + b.getAttribute("data-show")), hide = el.type === "text";
+            el.type = hide ? "password" : "text";
+            b.textContent = hide ? "Show" : "Hide";
+          };
+        });
+        root.querySelector("#yOn").onchange = function () { var v = this.checked; set(function (s) { s.settings.ypt.enabled = v; }); };
+        root.querySelector("#yHolds").onchange = function () { var v = this.checked; set(function (s) { s.settings.ypt.holds = v; }); };
+        root.querySelector("#yLay").onchange = function () { var v = this.checked; set(function (s) { s.settings.ypt.layovers = v; }); };
+        [["#yTestStart", "start"], ["#yTestStop", "stop"]].forEach(function (x) {
+          root.querySelector(x[0]).onclick = function () {
+            var url = x[1] === "start" ? yStart.value.trim() : yStop.value.trim();
+            if (!/^https:\/\//i.test(url)) { yRes.textContent = "Add the " + x[1] + " URL first."; return; }
+            yRes.textContent = "Sending " + x[1];
+            SF.ypt.test(x[1]).then(function (how) {
+              yRes.textContent = how === "sent" ? "Sent. Check the phone: the browser cannot confirm delivery." : "Reached your phone's MacroDroid.";
+            }, function (e) { yRes.textContent = "Not sent: " + (e && e.message ? e.message : "no connection") + "."; });
+          };
+        });
         ui.$$("[data-seg]", root).forEach(function (g) {
           g.onclick = function (e) {
             var b = e.target.closest("[data-v]"); if (!b) return;

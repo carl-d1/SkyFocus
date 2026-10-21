@@ -50,7 +50,7 @@
     var run = function () {
       if (!force && (!on() || link.last === kind)) return link.last === kind ? "already" : null;
       return attempt(kind, 1).then(function (how) { mark(kind); return how; }, function (e) {
-        SF.ui.toast("YPT link did not reach your phone. " + (kind === "start" ? "Start" : "Stop") + " YPT by hand.", "alert", 6000);
+        if (!force) SF.ui.toast("YPT link did not reach your phone. " + (kind === "start" ? "Start" : "Stop") + " YPT by hand.", "alert", 6000);
         throw e;
       });
     };

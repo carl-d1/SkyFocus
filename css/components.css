@@ -582,3 +582,4 @@ body.has-banner .main { grid-template-rows: auto var(--topbar-h) minmax(0, 1fr);
   color: var(--glass-text); background: rgba(10, 11, 14, .72); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); pointer-events: none; }
 .map-offline i { width: 8px; height: 8px; border-radius: 50%; background: #e0645a; box-shadow: 0 0 0 3px rgba(224, 100, 90, .25); }
 .checklist .ypt-line { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin: calc(var(--s-1) * -1) 0 var(--s-2) calc(20px + var(--s-3)); font-size: .8rem; color: var(--glass-muted); }
+.ypt-url input { flex: 1; min-width: 0; }
