@@ -100,7 +100,13 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
 .dest .code { font-size: 16px; font-weight: 600; }
 .dest-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .dest-name small { display: block; color: var(--glass-muted); font-weight: 400; font-size: 12px; }
-.dest-meta { text-align: right; font-size: 12px; color: var(--glass-muted); }
+.dest-meta { display: grid; justify-items: end; gap: 2px; text-align: right; font-size: 12px; color: var(--glass-muted); }
+.dest-meta b { font-size: 14px; font-weight: 600; color: var(--glass-text); }
+.dest.on .dest-meta b { color: var(--signal-text); }
+.dest-meta small { font-size: 11px; }
+/* Block readout: follows the hovered destination, flips when it changes */
+#minVal.preview { color: var(--signal-text); }
+#minVal.tick { animation: flapIn .22s cubic-bezier(.6, 0, .4, 1); }
 .search-row { display: flex; align-items: center; gap: var(--s-2); }
 .search-row > .icon { color: var(--glass-muted); }
 .quick-list { display: flex; flex-wrap: wrap; gap: var(--s-2); }

@@ -196,11 +196,24 @@
           renderDestList(); renderQuick(); renderMinutes();
         }
       }
+      function clampBlock(m) { return Math.max(5, Math.min(600, Math.round(m / 5) * 5)); }
+      // the block a destination would get: realistic flying time from here, in 5 minute steps
+      function blockFor(code) { return clampBlock(SF.geo.realisticMinutes(SF.geo.distanceKm(SF.airport(sel.from), SF.airport(code)))); }
       function setMinutes(m) {
-        sel.minutes = Math.max(5, Math.min(600, Math.round(m / 5) * 5));
+        sel.minutes = clampBlock(m);
         renderMinutes(); renderSummary();
       }
-      function renderMinutes() { var el = $("minVal"); if (el) el.textContent = SF.fmt.dur(sel.minutes); }
+      // shows a block in the stepper; preview=true while hovering a destination (not yet chosen)
+      function showBlock(min, preview) {
+        var el = $("minVal");
+        if (!el) return;
+        var txt = SF.fmt.dur(min);
+        el.classList.toggle("preview", !!preview);
+        if (el.textContent === txt) return;
+        el.textContent = txt;
+        el.classList.remove("tick"); void el.offsetWidth; el.classList.add("tick");
+      }
+      function renderMinutes() { showBlock(sel.minutes, false); }
 
       function renderDestList() {
         var box = $("destList");
@@ -212,7 +225,7 @@
         box.innerHTML = list.slice(0, 40).map(function (a) {
           return '<button type="button" class="dest' + (sel.to === a.iata ? " on" : "") + '" role="option" aria-selected="' + (sel.to === a.iata) + '" data-code="' + a.iata + '">' +
             '<b class="mono code">' + a.iata + '</b><span class="dest-name">' + SF.esc(a.city) + "<small>" + SF.esc(a.country) + "</small></span>" +
-            '<span class="dest-meta mono">' + SF.fmt.dist(SF.geo.distanceKm(A, a)) + "</span></button>";
+            '<span class="dest-meta mono"><b>' + SF.fmt.dur(blockFor(a.iata)) + "</b><small>" + SF.fmt.dist(SF.geo.distanceKm(A, a)) + "</small></span></button>";
         }).join("") || '<p class="muted pad">No match.</p>';
       }
 
@@ -262,6 +275,12 @@
       /* ---------- hover preview: the city pulses and an arc traces to it ---------- */
       var previewKey = null;
       function preview(e) {
+        // destination mode: the Block readout follows the destination under the pointer or focus
+        if (sel.mode === "destination") {
+          var d = e.target.closest && e.target.closest(".dest[data-code]");
+          if (d) showBlock(blockFor(d.getAttribute("data-code")), d.getAttribute("data-code") !== sel.to);
+          else renderMinutes();
+        }
         if (!mapObj) return;
         var el = e.target.closest && e.target.closest(".dc-options [data-code], .dest[data-code], .itinerary li[data-leg]");
         var key = el ? (el.getAttribute("data-code") || "leg" + el.getAttribute("data-leg")) : null;
@@ -275,7 +294,7 @@
       }
       root.addEventListener("pointerover", preview);
       root.addEventListener("focusin", preview);
-      root.addEventListener("pointerleave", function () { previewKey = null; if (mapObj) mapObj.api.setPreview(null); });
+      root.addEventListener("pointerleave", function () { previewKey = null; renderMinutes(); if (mapObj) mapObj.api.setPreview(null); });
 
       function reveal() {
         if (mapObj) { previewKey = null; mapObj.api.setPreview(null); }
