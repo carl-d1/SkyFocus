@@ -44,7 +44,11 @@ function loadState() {
 let saveTimer = null;
 function saveState() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { try { fs.writeFileSync(STATE_FILE(), JSON.stringify(state, null, 2)); } catch (e) { /* read-only disk */ } }, 300);
+  saveTimer = setTimeout(saveStateNow, 300);
+}
+function saveStateNow() {
+  clearTimeout(saveTimer);
+  try { fs.writeFileSync(STATE_FILE(), JSON.stringify(state, null, 2)); } catch (e) { /* read-only disk */ }
 }
 
 let win = null, pillWin = null, tray = null, quitting = false;
@@ -359,6 +363,32 @@ ipcMain.on("data:save", (e, text) => {
     fs.renameSync(tmp, DATA_FILE());
   } catch (err) { /* disk full or read-only: localStorage still has a copy */ }
 });
+// YPT link: two MacroDroid webhook URLs, kept here and never in the app data, so exports and backups
+// cannot carry them. The page asks for "start" or "stop"; the request runs here, outside the page CSP.
+function yptLink() { return Object.assign({ startUrl: "", stopUrl: "", last: "stop" }, state.ypt); }
+async function yptSend(kind) {
+  const link = yptLink(), url = kind === "start" ? link.startUrl : link.stopUrl;
+  if (!/^https:\/\//i.test(url)) return { ok: false, error: "No " + kind + " link set" };
+  let res;
+  if (TEST) { testLog("ypt " + kind); res = { ok: true, status: 200 }; }   // test runs never reach the phone
+  else {
+    try {
+      const r = await net.fetch(url, { method: "GET", cache: "no-store", signal: AbortSignal.timeout(8000) });
+      res = { ok: r.ok, status: r.status, error: r.ok ? "" : "HTTP " + r.status };
+    } catch (err) { res = { ok: false, error: err.name === "TimeoutError" ? "No answer in 8 s" : "No connection" }; }
+  }
+  if (res.ok) { state.ypt = Object.assign(link, { last: kind }); saveStateNow(); }
+  return res;
+}
+ipcMain.handle("ypt:get", (e) => fromMain(e) ? yptLink() : null);
+ipcMain.handle("ypt:set", (e, u) => {
+  if (!fromMain(e) || !u) return null;
+  const clean = (s) => { s = String(s || "").trim(); return /^https:\/\/\S+$/i.test(s) && s.length < 2000 ? s : ""; };
+  state.ypt = Object.assign(yptLink(), { startUrl: clean(u.startUrl), stopUrl: clean(u.stopUrl) });
+  saveStateNow();
+  return yptLink();
+});
+ipcMain.handle("ypt:send", (e, kind) => (fromMain(e) && (kind === "start" || kind === "stop")) ? yptSend(kind) : null);
 ipcMain.handle("app:firstRun", (e) => fromMain(e) ? !state.firstRunDone : false);
 ipcMain.on("app:firstRunDone", (e) => { if (fromMain(e)) { state.firstRunDone = true; saveState(); } });
 
@@ -411,7 +441,15 @@ function testHooks() {
 }
 
 /* ---------- start ---------- */
-app.on("before-quit", () => { quitting = true; });
+// Quitting while YPT runs stops it first (up to 3 s), so the phone is not left counting.
+let yptStopped = false;
+app.on("before-quit", (e) => {
+  quitting = true;
+  if (yptStopped || yptLink().last !== "start") return;
+  e.preventDefault();
+  yptStopped = true;
+  Promise.race([yptSend("stop"), new Promise((r) => setTimeout(r, 3000))]).finally(() => app.quit());
+});
 app.on("window-all-closed", () => { if (quitting) app.quit(); });
 app.whenReady().then(() => {
   loadState();

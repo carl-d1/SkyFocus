@@ -30,6 +30,12 @@ contextBridge.exposeInMainWorld("skyfocusDesktop", {
   backupNow: (json) => ipcRenderer.invoke("data:backup", json),
   isFirstRun: () => ipcRenderer.invoke("app:firstRun"),
   firstRunDone: () => ipcRenderer.send("app:firstRunDone"),
+  // YPT link: the main process keeps the webhook URLs and makes the requests
+  ypt: {
+    get: () => ipcRenderer.invoke("ypt:get"),
+    set: (urls) => ipcRenderer.invoke("ypt:set", urls),
+    send: (kind) => ipcRenderer.invoke("ypt:send", kind)
+  },
   // app data, kept in a file the main process writes at once
   storage: {
     load: () => ipcRenderer.sendSync("data:load"),
