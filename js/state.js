@@ -158,6 +158,12 @@
   };
 
   /* ---------- formatting ---------- */
+  // Intl formatters are slow to create; one per distinct set of options is kept and reused.
+  var DTF = {};
+  SF.dtf = function (locale, o) {
+    var k = (locale || "") + "|" + JSON.stringify(o);
+    return DTF[k] || (DTF[k] = new Intl.DateTimeFormat(locale, o));
+  };
   SF.fmt = {
     dist: function (km, withUnit) {
       var mi = store.state.settings.units === "mi";
@@ -180,13 +186,13 @@
       return h ? h + "h " + String(m).padStart(2, "0") + "m" : m + "m";
     },
     time: function (date) {
-      return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hour12: !store.state.settings.clock24 }).format(date);
+      return SF.dtf(undefined, { hour: "numeric", minute: "2-digit", hour12: !store.state.settings.clock24 }).format(date);
     },
     date: function (date) {
-      return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(date);
+      return SF.dtf(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(date);
     },
     shortDate: function (date) {
-      return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(date).toUpperCase();
+      return SF.dtf(undefined, { day: "2-digit", month: "short" }).format(date).toUpperCase();
     },
     localTime: function (tz, date) { return SF.geo.localTime(tz, date, !store.state.settings.clock24); }
   };

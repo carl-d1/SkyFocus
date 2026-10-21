@@ -95,16 +95,23 @@
   }
 
   // Local time string in an IANA zone.
+  // formatters reused per zone (state.js keeps the cache; geo.js loads first, so it falls back to a local one)
+  var DTF = {};
+  function dtf(locale, o) {
+    if (SF.dtf) return SF.dtf(locale, o);
+    var k = (locale || "") + "|" + JSON.stringify(o);
+    return DTF[k] || (DTF[k] = new Intl.DateTimeFormat(locale, o));
+  }
   function localTime(tz, date, h12) {
     try {
-      return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hour12: !!h12, timeZone: tz }).format(date || new Date());
+      return dtf(undefined, { hour: "numeric", minute: "2-digit", hour12: !!h12, timeZone: tz }).format(date || new Date());
     } catch (e) {
-      return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hour12: !!h12 }).format(date || new Date());
+      return dtf(undefined, { hour: "numeric", minute: "2-digit", hour12: !!h12 }).format(date || new Date());
     }
   }
   function localHour(tz, date) {
     try {
-      var s = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: tz }).format(date || new Date());
+      var s = dtf("en-GB", { hour: "2-digit", hour12: false, timeZone: tz }).format(date || new Date());
       return parseInt(s, 10) % 24;
     } catch (e) { return (date || new Date()).getHours(); }
   }

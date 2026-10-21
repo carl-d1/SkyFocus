@@ -173,10 +173,14 @@
       });
       var home = SF.airport(S.profile.home);
       if (home) marks[home.iata] = home;
-      var mapObj = SF.maps.create(root.querySelector("#routesMap"), "classic", { camera: "route", padPx: 28, showPlane: false, label: "Routes flown" });
-      mapObj.api.setRoutes(routes);
-      mapObj.api.setMarkers(Object.keys(marks).map(function (k) { var a = marks[k]; return { lat: a.lat, lon: a.lon, label: routes.length > 30 ? "" : a.iata, cls: a === home ? "m-from" : "m-stop", px: 3.5 }; }));
-      self._map = mapObj;
+      // built after the screen's first frame
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        if (self._token !== token) return;
+        var mapObj = SF.maps.create(root.querySelector("#routesMap"), "classic", { camera: "route", padPx: 28, showPlane: false, label: "Routes flown" });
+        mapObj.api.setRoutes(routes);
+        mapObj.api.setMarkers(Object.keys(marks).map(function (k) { var a = marks[k]; return { lat: a.lat, lon: a.lon, label: routes.length > 30 ? "" : a.iata, cls: a === home ? "m-from" : "m-stop", px: 3.5 }; }));
+        self._map = mapObj;
+      }); });
     },
     unmount: function () {
       this._token = null;

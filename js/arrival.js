@@ -34,7 +34,7 @@
     var speck = opts.onDark ? "0 0 0 -1.5 1.55" : "0 0 0 -2.4 1.75";
     var rot = ((hi % 25) - 12);
     var dash = ["", "5 3", "2 3"][(hi >> 3) % 3];
-    var fid = "ink-" + s.iata + "-" + Math.random().toString(36).slice(2, 6);
+    var fid = opts._fid || "ink-" + s.iata + "-" + Math.random().toString(36).slice(2, 6);
     var date = SF.fmt.shortDate(new Date(s.date)) + " " + String(new Date(s.date).getFullYear()).slice(2);
     var country = s.country.toUpperCase(), city = s.city.toUpperCase();
     var outer = "", inner = "", text = "";
@@ -94,6 +94,23 @@
       '<g transform="rotate(' + rot + ' 100 100)" filter="url(#' + fid + ')" fill="none" stroke="' + ink + '" font-family="JetBrains Mono, Consolas, monospace">' +
       outer + inner + '<g fill="' + ink + '" stroke="none">' + text + "</g>" + plane + "</g></svg>";
   };
+
+  // Stamps are drawn once per stamp, size and style, then reused; each copy keeps a unique filter id.
+  (function () {
+    var draw = SF.stampSVG, memo = {}, n = 0;
+    SF.stampSVG = function (s, size, opts) {
+      opts = opts || {};
+      var fid = "ink-" + s.iata + "-" + Math.random().toString(36).slice(2, 6);
+      var key = [s.iata, s.cc, s.country, s.city, s.date, size, opts.onDark ? 1 : 0].join("|");
+      var tpl = memo[key];
+      if (!tpl) {
+        if (++n > 600) { memo = {}; n = 1; }
+        tpl = memo[key] = draw(s, size, Object.assign({}, opts, { _fid: "__SFFID__" }));
+      }
+      return tpl.split("__SFFID__").join(fid);
+    };
+  })();
+
 
   function findFlight(id) {
     var fl = SF.store.state.flights;

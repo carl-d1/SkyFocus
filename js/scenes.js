@@ -19,14 +19,7 @@
   function pad(n) { return String(n).padStart(2, "0"); }
   function sfx(name, v) { try { if (SF.audio && SF.audio[name]) SF.audio[name](v); } catch (e) { /* audio is optional */ } }
 
-  var webgl = null;
-  function hasWebGL() {
-    if (webgl === null) {
-      try { var c = document.createElement("canvas"); webgl = !!(window.WebGLRenderingContext && (c.getContext("webgl2") || c.getContext("webgl"))); }
-      catch (e) { webgl = false; }
-    }
-    return webgl;
-  }
+  function hasWebGL() { return SF.lib.webgl(); }
 
   /* ---------- light: the real sun at the airport ---------- */
   function sunAt(ap, date) {

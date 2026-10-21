@@ -41,8 +41,20 @@
       });
     }, Promise.reject(new Error("start")));
   }
-  var pending = {};
+  var pending = {}, webgl = null;
   SF.lib = {
+    // WebGL support, checked once; the probe context is released at once
+    webgl: function () {
+      if (webgl === null) {
+        try {
+          var c = document.createElement("canvas"), gl = window.WebGLRenderingContext && (c.getContext("webgl2") || c.getContext("webgl"));
+          webgl = !!gl;
+          var lose = gl && gl.getExtension("WEBGL_lose_context");
+          if (lose) lose.loseContext();
+        } catch (e) { webgl = false; }
+      }
+      return webgl;
+    },
     ready: function (name) { return !(SF.forceOffline && LIBS[name].tiles) && LIBS[name].ready(); },
     load: function (name) {
       var lib = LIBS[name];

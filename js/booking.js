@@ -310,6 +310,10 @@
         renderCard();
         renderSummary();
         renderSeats();
+        syncMap();
+      }
+      // the route map follows the selection (also used when the map is created after the first frame)
+      function syncMap() {
         var A = SF.airport(sel.from);
         if (!mapObj) return;
         if (sel.mode === "journey") {
@@ -510,7 +514,6 @@
         // When the card sits low (narrow layouts), keep the route above it instead.
         return { left: sheet.getBoundingClientRect().right + gut, top: bar.getBoundingClientRect().bottom + gut, right: right, bottom: gut };
       }
-      mapObj = SF.maps.create($("routeMap"), "classic", { camera: "route", padPx: 48, planeSize: 22, showPlane: false, label: "Route map", insets: insets });
       setFromLabel(); renderPending(); renderGoal(); renderTags(); renderMode();
       if (preset && SF.airport(preset.to) && preset.to !== sel.from) {
         if (preset.minutes) sel.minutes = preset.minutes;
@@ -524,7 +527,14 @@
       else if (sel.mode === "time") pick(true);
       else reveal();
       var hero = SF.hero.mount($("bookHero"), { view: "side" });
-      this._cleanup = function () { offRoot(); hero.destroy(); if (mapObj) mapObj.api.destroy(); };
+      // the screen paints first; the route map is built on the next frames
+      var gone = false;
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        if (gone) return;
+        mapObj = SF.maps.create($("routeMap"), "classic", { camera: "route", padPx: 48, planeSize: 22, showPlane: false, label: "Route map", insets: insets });
+        syncMap();
+      }); });
+      this._cleanup = function () { gone = true; offRoot(); hero.destroy(); if (mapObj) mapObj.api.destroy(); };
     },
     unmount: function () { if (this._cleanup) this._cleanup(); }
   };
