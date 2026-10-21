@@ -68,7 +68,8 @@
         from: S.currentAirport || S.profile.home,
         to: null,
         minutes: S.settings.defaultDuration,
-        mode: ["destination", "journey"].indexOf(S.settings.bookingMode) >= 0 ? S.settings.bookingMode : "time",
+        // a preset (next-flight suggestion, pill "Book 25 min") is one flight, so Journey mode gives way to Time
+        mode: ["destination", "journey"].indexOf(S.settings.bookingMode) >= 0 && !(SF.bookPreset && S.settings.bookingMode === "journey") ? S.settings.bookingMode : "time",
         legs: 3, untilStop: false, plan: [],
         tagId: S.lastTagId || S.tags[0].id,
         seat: null,
@@ -109,7 +110,8 @@
       /* ---------- pending (booked, not departed) ---------- */
       function renderPending() {
         var af = SF.store.state.activeFlight, box = $("pendingSlot"), jn = SF.journey.active();
-        if (!af && jn) {
+        if (!af && jn && !jn.legs[jn.index]) SF.journey.end();   // a journey with no leg left to fly cannot resume
+        if (!af && jn && jn.legs[jn.index]) {
           // a journey between legs (layover left early): resume or end it
           box.innerHTML = '<div class="notice">' + SF.icon("route") + "<span>Journey in progress. Next: <b class=\"mono\">leg " + (jn.index + 1) + " " + jn.legs[jn.index].from + " to " + jn.legs[jn.index].to + "</b>.</span>" +
             '<button class="btn btn-signal small" id="jResume">Board</button><button class="btn small" id="jEnd">End journey</button></div>';
@@ -378,7 +380,7 @@
       }
 
       function renderSummary() {
-        $("printPass").disabled = !(sel.to && sel.seat);
+        $("printPass").disabled = !(sel.to && sel.seat) || (sel.mode === "journey" && !sel.plan.length);
         $("printPass").querySelector("span").textContent = sel.mode === "journey" ? "Start journey" : "Print boarding pass";
         var dc = sel.mode === "journey" ? null : root.querySelector(".dc-facts div:last-child dd");
         if (dc) dc.textContent = SF.fmt.dur(sel.minutes);
@@ -448,6 +450,7 @@
       $("printPass").addEventListener("click", function () {
         if (!sel.to || !sel.seat) return;
         if (sel.mode === "journey") {
+          if (!sel.plan.length) return;
           var jt = SF.tag(sel.tagId), jb = SF.bandForTag(sel.tagId);
           SF.store.update(function (s) { s.lastTagId = jt.id; });
           SF.journey.start({ legs: sel.plan, untilStop: sel.untilStop, tagId: jt.id, task: $("taskInput").value.trim(), seat: sel.seat, cls: jt.builtin ? jt.cls : jb.name });

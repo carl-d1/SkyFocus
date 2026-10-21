@@ -32,6 +32,7 @@
     },
 
     start: function (o) {
+      if (!o.legs || !o.legs.length) return;   // nothing to fly: no empty journey
       var c = cfg();
       var j = {
         id: "j" + SF.uid(),
