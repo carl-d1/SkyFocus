@@ -90,7 +90,7 @@
 
         '<footer class="strip-ctrl">' +
         '<button class="btn" id="holdBtn">' + SF.icon("pause") + '<span id="holdTxt">Hold</span><small id="holdsLeft"></small></button>' +
-        '<button class="btn btn-text danger" id="divertBtn">' + SF.icon("alert") + "<span>" + (af.journeyId ? "End journey" : "Divert") + "</span></button>" +
+        '<button class="btn btn-text danger" id="divertBtn">' + SF.icon("alert") + "<span>" + (af.journeyId ? (af.pomodoro ? "End Pomodoro" : "End journey") : "Divert") + "</span></button>" +
         "</footer></aside>" +
         "</div>";
 
@@ -236,11 +236,13 @@
       $("divertBtn").onclick = function () {
         var cur = SF.store.state.activeFlight;
         if (!cur) return;
-        var inJourney = !!cur.journeyId;
-        ui.confirm(inJourney ? "End journey" : "Divert flight " + cur.flightNo,
-          inJourney ? "This leg returns to <b>" + SF.esc(cur.fromCity) + "</b> and is logged as diverted. Completed legs stay in the logbook."
+        var inJourney = !!cur.journeyId, endWord = cur.pomodoro ? "End Pomodoro" : "End journey";
+        ui.confirm(inJourney ? endWord : "Divert flight " + cur.flightNo,
+          cur.pomodoro ? "This focus flight is logged as diverted. Completed focus flights stay in the logbook."
+            : inJourney ? "This leg returns to <b>" + SF.esc(cur.fromCity) + "</b> and is logged as diverted. Completed legs stay in the logbook."
+            : cur.free ? "The flight is logged as diverted with the distance flown so far."
             : "Return to <b>" + SF.esc(cur.fromCity) + "</b>. The flight is logged as diverted with the distance flown so far. No stamp is issued.",
-          inJourney ? "End journey" : "Divert", true)
+          inJourney ? endWord : "Divert", true)
           .then(function (ok) { if (ok && SF.store.state.activeFlight) SF.engine.divert(inJourney ? "journey" : "manual"); });
       };
 

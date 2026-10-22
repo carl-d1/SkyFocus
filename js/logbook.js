@@ -94,8 +94,8 @@
           if (r.journeyId && !headed[r.journeyId]) {
             headed[r.journeyId] = true;
             var js = SF.journey.summary(r.journeyId), live = SF.journey.active() && SF.journey.active().id === r.journeyId;
-            head = '<tr class="journey-head"><td colspan="5"><span class="leg-tag">JOURNEY</span> <b class="mono">' + js.stops.join(" → ") + "</b>" +
-              '<small class="mono"> · ' + js.landed + " OF " + js.legs + " LEGS LANDED" + (live ? " · IN PROGRESS" : js.endedEarly ? " · ENDED EARLY" : "") + "</small></td>" +
+            head = '<tr class="journey-head"><td colspan="5"><span class="leg-tag">' + (r.pomodoro ? "POMODORO" : "JOURNEY") + '</span> <b class="mono">' + js.stops.join(" → ") + "</b>" +
+              '<small class="mono"> · ' + js.landed + " OF " + js.legs + (r.pomodoro ? " FOCUS FLIGHTS LANDED" : " LEGS LANDED") + (live ? " · IN PROGRESS" : js.endedEarly ? " · ENDED EARLY" : "") + "</small></td>" +
               '<td class="mono num">' + SF.fmt.dur(js.minutes) + '</td><td class="mono num">' + js.miles.toLocaleString() + '</td><td class="col-status"></td></tr>';
             rowsShown++;
           }
@@ -103,7 +103,7 @@
           return head + '<tr tabindex="0" data-id="' + r.id + '" class="' + (r.journeyId ? "leg-row" : "") + '" aria-label="Open boarding pass ' + r.flightNo + '">' +
             '<td class="mono">' + SF.fmt.shortDate(d) + " " + SF.fmt.time(d) + "</td>" +
             '<td class="mono">' + r.flightNo + "</td>" +
-            '<td class="mono"><b>' + r.from + " → " + r.to + "</b>" + (r.legIndex != null ? ' <small class="muted">L' + (r.legIndex + 1) + "</small>" : "") + "</td>" +
+            '<td class="mono"><b>' + r.from + " → " + r.to + "</b>" + (r.legIndex != null ? ' <small class="muted">' + (r.pomodoro ? "F" : "L") + (r.legIndex + 1) + "</small>" : r.free ? ' <small class="muted">TIME</small>' : "") + "</td>" +
             '<td><span class="tag-pill" style="--tag:' + r.tagColor + '">' + SF.esc(r.tagName) + "</span></td>" +
             '<td class="col-task">' + (r.task ? SF.esc(r.task) : "") + "</td>" +
             '<td class="mono num">' + SF.fmt.dur(r.focusMin) + "</td>" +

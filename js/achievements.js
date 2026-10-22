@@ -72,8 +72,10 @@
       if (!f.holds && (f.plannedMin || 0) >= 60) c.noHolds = 1;
       var A = SF.airport(f.from), B = SF.airport(f.to);
       if (A && B && A.lat * B.lat < 0) c.equator = 1;
-      if (f.to === s.profile.home && visitedOther) c.home = 1;
-      if (f.to !== s.profile.home) visitedOther = true;
+      if (!f.free) {   // time flights do not take you anywhere
+        if (f.to === s.profile.home && visitedOther) c.home = 1;
+        if (f.to !== s.profile.home) visitedOther = true;
+      }
       if (f.journeyId && legs[f.journeyId] !== -1) legs[f.journeyId] = (legs[f.journeyId] || 0) + 1;
     });
     Object.keys(legs).forEach(function (k) { c.journeyLegs = Math.max(c.journeyLegs, legs[k]); });

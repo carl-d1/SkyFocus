@@ -1,8 +1,11 @@
-/* Journeys: chains of focus legs between nearby airports, with layovers as breaks.
-   Each leg is an ordinary flight (gate, flight, landing, stamp) tagged with the journey id. */
+/* Pomodoro: four 25 minute focus flights with 5 minute breaks and a 10 minute long break after the
+   fourth, then go again or finish. Each focus is a time flight (a random chain of routes anywhere, no
+   stamps, no change of location) tagged with the cycle id. Older journeys (legs from your airport,
+   with stamps) still finish as before. */
 (function () {
   var SF = (window.SF = window.SF || {});
-  var PLAN_AHEAD = 6;   // legs planned at a time for "until I stop"
+  var PLAN_AHEAD = 6;   // legs planned at a time for an older "until I stop" journey
+  var POMO = { legs: 4, focus: 25, shortBreak: 5, longBreak: 10, longEvery: 4 };
 
   function cfg() { return SF.store.state.settings.journey; }
 
@@ -25,6 +28,18 @@
       return legs;
     },
 
+    POMODORO: POMO,
+
+    // A Pomodoro cycle: four legs of about 25 minutes, chained from a random airport anywhere.
+    planCycle: function (seed) {
+      var r = SF.rng(seed || Date.now()), list = window.AIRPORTS;
+      for (var t = 0; t < 40; t++) {
+        var legs = J.plan(list[Math.floor(r() * list.length)].iata, POMO.legs, POMO.focus, Math.floor(r() * 1e9));
+        if (legs.length === POMO.legs) return legs;
+      }
+      return [];
+    },
+
     // Break after completed leg number n (1-based): long after every Nth leg.
     breakAfter: function (n, j) {
       j = j || J.active() || cfg();
@@ -33,11 +48,10 @@
 
     start: function (o) {
       if (!o.legs || !o.legs.length) return;   // nothing to fly: no empty journey
-      var c = cfg();
       var j = {
-        id: "j" + SF.uid(),
-        legs: o.legs, untilStop: !!o.untilStop,
-        legMin: c.legMin, shortBreak: c.shortBreak, longBreak: c.longBreak, longEvery: c.longEvery,
+        id: "j" + SF.uid(), pomodoro: true,
+        legs: o.legs, untilStop: false,
+        legMin: POMO.focus, shortBreak: POMO.shortBreak, longBreak: POMO.longBreak, longEvery: POMO.longEvery,
         tagId: o.tagId, task: o.task || "", seat: o.seat, cls: o.cls,
         index: 0, startedAt: Date.now(), ended: null
       };
@@ -51,7 +65,8 @@
       var leg = j.legs[i];
       var af = SF.flight.create({
         from: leg.from, to: leg.to, minutes: j.legMin, tagId: j.tagId, seat: j.seat, cls: j.cls, task: j.task,
-        journeyId: j.id, legIndex: i, legCount: j.untilStop ? null : j.legs.length
+        journeyId: j.id, legIndex: i, legCount: j.untilStop ? null : j.legs.length,
+        free: !!j.pomodoro, pomodoro: !!j.pomodoro
       });
       SF.store.update(function (s) { s.activeFlight = af; s.journey.index = i; }, true);
       return af;
@@ -65,16 +80,32 @@
         var jj = s.journey;
         if (rec.status !== "landed") { jj.ended = "early"; J._close(s, rec); return; }
         jj.index = rec.legIndex + 1;
-        if (jj.index >= jj.legs.length) {
+        // a Pomodoro stays open after its last focus: the long break, then go again or finish
+        if (jj.index >= jj.legs.length && !jj.pomodoro) {
           if (jj.untilStop) jj.legs = jj.legs.concat(J.plan(rec.to, PLAN_AHEAD, jj.legMin));
           else { jj.ended = "complete"; J._close(s, rec); }
         }
       }, true);
     },
 
-    // End at a layover (nothing in the air): completed legs stay logged.
-    end: function () {
-      SF.store.update(function (s) { if (s.journey) { s.journey.ended = "stopped"; J._close(s); } }, true);
+    // End at a layover (nothing in the air): completed legs stay logged. how: "complete" once a
+    // Pomodoro has flown every focus, otherwise "stopped".
+    end: function (how) {
+      SF.store.update(function (s) { if (s.journey) { s.journey.ended = how === "complete" ? "complete" : "stopped"; J._close(s); } }, true);
+    },
+
+    // Every focus of the cycle flown (the long break may still be running).
+    cycleDone: function (j) { j = j || J.active(); return !!(j && j.pomodoro && j.index >= j.legs.length); },
+
+    // Finish this cycle and start another with the same tag, task and seat. Returns the first booked leg.
+    again: function () {
+      var j = J.active() || SF.store.state.lastJourney;
+      if (!j) return null;
+      var legs = J.planCycle();
+      if (!legs.length) return null;
+      if (J.active()) SF.journey.end("complete");
+      J.start({ legs: legs, tagId: j.tagId, task: j.task, seat: j.seat, cls: j.cls });
+      return SF.store.state.activeFlight;
     },
 
     _close: function (s, rec) {
@@ -82,6 +113,7 @@
       var legs = s.flights.filter(function (f) { return f.journeyId === j.id; });
       s.lastJourney = {
         id: j.id, ended: j.ended, planned: j.untilStop ? null : j.legs.length,
+        pomodoro: !!j.pomodoro, tagId: j.tagId, task: j.task, seat: j.seat, cls: j.cls,
         landed: legs.filter(function (f) { return f.status === "landed"; }).length,
         minutes: legs.reduce(function (a, f) { return a + (f.focusMin || 0); }, 0),
         km: legs.reduce(function (a, f) { return a + (f.flownKm || 0); }, 0),
@@ -106,7 +138,7 @@
 
     legLabel: function (af) {
       if (!af || af.legIndex == null) return "";
-      return "LEG " + (af.legIndex + 1) + (af.legCount ? " OF " + af.legCount : "");
+      return (af.pomodoro ? "FOCUS " : "LEG ") + (af.legIndex + 1) + (af.legCount ? " OF " + af.legCount : "");
     }
   });
 })();

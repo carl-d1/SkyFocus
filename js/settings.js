@@ -28,7 +28,6 @@
           "</section>" +
 
           '<section class="glass set-sec"><h2>' + SF.icon("clock") + "Focus</h2>" +
-          '<div class="field"><span class="label">Booking mode</span>' + seg("booking", s.bookingMode, [["time", "Pick my time"], ["destination", "Pick my destination"], ["journey", "Journey"]]) + "</div>" +
           '<label class="field"><span class="label">Default focus length (min)</span><input type="number" id="sDur" min="5" max="600" step="5" value="' + s.defaultDuration + '"></label>' +
           '<div class="field"><span class="label">Layover lengths (min)</span><div class="inline-row">' + s.breaks.map(function (b, i) {
             return '<input type="number" class="short" data-break="' + i + '" min="1" max="60" value="' + b + '" aria-label="Layover option ' + (i + 1) + '">';
@@ -37,14 +36,9 @@
           toggle("sDnd", s.dndChecklist, "Pre-departure check", "Checklist at the gate.") +
           "</section>" +
 
-          '<section class="glass set-sec"><h2>' + SF.icon("route") + "Journeys</h2>" +
-          '<p class="muted">Several focus legs in a row, with layovers as breaks.</p>' +
-          '<label class="field"><span class="label">Leg length (min)</span><input type="number" id="jLeg" min="5" max="120" step="5" value="' + s.journey.legMin + '"></label>' +
-          '<div class="field"><span class="label">Layovers (min): short, long, long every N legs</span><div class="inline-row">' +
-          '<input type="number" class="short" id="jShort" min="1" max="60" value="' + s.journey.shortBreak + '" aria-label="Short layover minutes">' +
-          '<input type="number" class="short" id="jLong" min="1" max="90" value="' + s.journey.longBreak + '" aria-label="Long layover minutes">' +
-          '<input type="number" class="short" id="jEvery" min="2" max="8" value="' + s.journey.longEvery + '" aria-label="Long layover every N legs"></div></div>' +
-          toggle("jAuto", s.journey.autoStart, "Auto-start next leg", "Board automatically when a layover ends.") +
+          '<section class="glass set-sec"><h2>' + SF.icon("route") + "Pomodoro</h2>" +
+          '<p class="muted">Four focus flights of 25 min with 5 min breaks, and a 10 min long break after the fourth. Then go again or finish. Random routes anywhere: no stamps, and you stay where you are.</p>' +
+          toggle("jAuto", s.journey.autoStart, "Auto-start next focus", "Board automatically when a short break ends.") +
           "</section>" +
 
           '<section class="glass set-sec"><h2>' + SF.icon("sun") + "Display</h2>" +
@@ -108,6 +102,7 @@
           '<p class="muted">' + (SF.desktop ? "Stored by the desktop app, separate from the browser version. Import a browser export to bring flights, stamps, achievements and tiers across" :
             "Stored in this browser only" + (SF.isFile ? ". File mode: separate from the start.bat version" : "")) + ".</p>" +
           (SF.desktop ? '<div class="row-btns"><button class="btn" id="backupBtn">' + SF.icon("download") + '<span>Backup now</span></button><button class="btn" id="folderBtn">' + SF.icon("logbook") + "<span>Open data folder</span></button></div>" : "") +
+          (SF.desktop && SF.checkForUpdates ? '<div class="row-btns"><button class="btn" id="updBtn">' + SF.icon("refresh") + '<span>Check for updates</span></button><span class="small-print" id="verTxt"></span></div>' : "") +
           '<div class="row-btns"><button class="btn" id="exportBtn">' + SF.icon("download") + '<span>Export JSON</span></button>' +
           '<label class="btn" tabindex="0" id="importLbl">' + SF.icon("upload") + '<span>Import JSON</span><input type="file" id="importFile" accept="application/json,.json" hidden></label></div>' +
           '<div class="danger-zone"><b>Reset</b><p class="muted">Deletes all flights, stamps and settings in this browser.</p><button class="btn btn-danger" id="resetBtn">' + SF.icon("trash") + "<span>Reset all data</span></button></div>" +
@@ -166,10 +161,6 @@
           };
         });
         root.querySelector("#sDnd").onchange = function () { var v = this.checked; set(function (s) { s.settings.dndChecklist = v; }); };
-        num("#jLeg", 5, 120, function (s, v) { s.settings.journey.legMin = v; });
-        num("#jShort", 1, 60, function (s, v) { s.settings.journey.shortBreak = v; });
-        num("#jLong", 1, 90, function (s, v) { s.settings.journey.longBreak = v; });
-        num("#jEvery", 2, 8, function (s, v) { s.settings.journey.longEvery = v; });
         root.querySelector("#jAuto").onchange = function () { var v = this.checked; set(function (s) { s.settings.journey.autoStart = v; }); };
         root.querySelector("#sMotion").onchange = function () { var v = this.checked; set(function (s) { s.settings.reducedMotion = v; }); };
         root.querySelector("#sScenes").onchange = function () { var v = this.checked; set(function (s) { s.settings.scenes = v; }); };
@@ -293,6 +284,11 @@
             D.backupNow(SF.store.exportJSON()).then(function (f) { ui.toast(f ? "Backup saved: " + f.split(/[\/]/).pop() : "Backup failed.", f ? "check" : "alert", 5000); });
           };
           root.querySelector("#folderBtn").onclick = function () { D.openDataFolder(); };
+          var ub = root.querySelector("#updBtn");
+          if (ub) {
+            ub.onclick = function () { SF.checkForUpdates(); };
+            D.updates.state().then(function (u) { if (u) root.querySelector("#verTxt").textContent = "Version " + u.current + (u.portable ? " · portable" : ""); });
+          }
         }
         root.querySelector("#resetBtn").onclick = function () {
           var body = ui.h('<div><p>Permanently deletes every flight, stamp and setting in this browser. Export first to keep a copy.</p>' +

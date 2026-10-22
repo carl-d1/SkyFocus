@@ -21,11 +21,11 @@
     var lo = S.layover;
     if (lo) {
       var total = lo.min * 60000, left = Math.max(0, total - (now - lo.start) * (lo.scale || 1));
-      var inJ = j && lo.journeyId === j.id;
+      var inJ = j && lo.journeyId === j.id && !!j.legs[j.index];   // after a Pomodoro's last focus: the long break, nothing next
       return {
-        kind: "layover", at: S.currentAirport, remainingMs: left, progress: total ? 1 - left / total : 1,
-        next: inJ && j.legs[j.index] ? j.legs[j.index].to : "",
-        journey: inJ ? { index: j.index, count: j.untilStop ? j.legs.length : j.legs.length } : null
+        kind: "layover", at: lo.at || S.currentAirport, remainingMs: left, progress: total ? 1 - left / total : 1,
+        next: inJ ? j.legs[j.index].to : "",
+        journey: inJ ? { index: j.index, count: j.legs.length } : null
       };
     }
     return { kind: "idle" };

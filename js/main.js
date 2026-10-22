@@ -87,17 +87,18 @@
       SF.engine.run();
     }
     if (modeFor[kind]) kind = "flight";
-    if (kind === "journey") SF.store.update(function (s) { s.settings.bookingMode = "journey"; }, true);
+    if (kind === "journey") SF.bookMode = "journey";
+    if (kind === "time") { SF.bookMode = "time"; kind = "book"; }
     if (kind === "jlayover" && !SF.journey.active()) {
       // a 3-leg journey with leg 1 landed and the first layover running
-      var legs = SF.journey.plan(SF.store.state.currentAirport, 3, 25, 7);
-      SF.journey.start({ legs: legs, untilStop: false, tagId: "coding", task: "Refactor the parser", seat: "4A", cls: "Compiler Class" });
+      var legs = SF.journey.planCycle(7);
+      SF.journey.start({ legs: legs, tagId: "coding", task: "Refactor the parser", seat: "4A", cls: "Compiler Class" });
       SF.store.update(function (s) {
         var af = s.activeFlight; af.timeScale = 1; af.started = true; af.startAt = now - 26 * 60000;
         var st = SF.flight.status(af, now);
         var rec = SF.flight.toRecord(af, "landed", st, { endAt: now - 60000 });
-        s.flights.push(rec); s.activeFlight = null; s.currentAirport = legs[0].to; s.journey.index = 1;
-        s.layover = { start: now - 90000, min: 5, scale: 1, journeyId: s.journey.id };
+        s.flights.push(rec); s.activeFlight = null; s.journey.index = 1;
+        s.layover = { start: now - 90000, min: 5, scale: 1, journeyId: s.journey.id, at: legs[0].to };
       }, true);
     }
     if (kind === "stats") seedYear(now);

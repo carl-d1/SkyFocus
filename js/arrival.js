@@ -156,6 +156,13 @@
   }
   function nextCard(rec, here, breaks) {
     var j = SF.journey.active();
+    if (j && rec.journeyId === j.id && j.pomodoro) {
+      var pn = rec.legIndex + 1, pmin = SF.journey.breakAfter(pn, j), last = pn >= j.legs.length;
+      return '<div class="glass journey-card"><h3>' + SF.icon("route") + "Pomodoro · focus " + pn + " of " + j.legs.length + " complete</h3>" +
+        itineraryList(j.legs, pn, last ? -1 : pn) +
+        '<button class="btn btn-signal block" id="journeyLayover" data-min="' + pmin + '">' + SF.icon("coffee") + "<span>" + (last ? "Long break · " : "Break · ") + pmin + " min</span></button>" +
+        '<button class="btn btn-text" id="journeyEnd">' + (last ? "Finish without a break" : "End Pomodoro here") + "</button></div>";
+    }
     if (j && rec.journeyId === j.id) {
       var n = rec.legIndex + 1, min = SF.journey.breakAfter(n, j);
       return '<div class="glass journey-card"><h3>' + SF.icon("route") + "Journey · leg " + n + (j.untilStop ? "" : " of " + j.legs.length) + " complete</h3>" +
@@ -165,9 +172,11 @@
     }
     var lj = SF.store.state.lastJourney;
     if (lj && rec.journeyId === lj.id) {
-      return '<div class="glass journey-card"><h3>' + SF.icon("route") + (lj.ended === "complete" ? "Journey complete" : "Journey ended") + "</h3>" +
-        '<dl class="dc-facts mono"><div><dt>Legs</dt><dd>' + lj.landed + (lj.planned ? " of " + lj.planned : "") + "</dd></div><div><dt>Focus</dt><dd>" + SF.fmt.dur(lj.minutes) + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(lj.km) + "</dd></div></dl>" +
-        '<button class="btn btn-signal block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>";
+      var word = lj.pomodoro ? "Pomodoro" : "Journey";
+      return '<div class="glass journey-card"><h3>' + SF.icon("route") + word + (lj.ended === "complete" ? " complete" : " ended") + "</h3>" +
+        '<dl class="dc-facts mono"><div><dt>' + (lj.pomodoro ? "Focus flights" : "Legs") + "</dt><dd>" + lj.landed + (lj.planned ? " of " + lj.planned : "") + "</dd></div><div><dt>Focus</dt><dd>" + SF.fmt.dur(lj.minutes) + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(lj.km) + "</dd></div></dl>" +
+        (lj.pomodoro ? '<button class="btn btn-signal block" id="goAgain">' + SF.icon("refresh") + "<span>Go again</span></button>" : "") +
+        '<button class="btn' + (lj.pomodoro ? "" : " btn-signal") + ' block" id="nextFlight">' + SF.icon("takeoff") + "<span>Book next flight · " + here.iata + "</span></button></div>";
     }
     return '<div class="glass next-card"><h3>' + SF.icon("coffee") + "Layover</h3><p class=\"muted\">Break before the next departure.</p>" +
       '<div class="chips" id="layover">' + breaks.map(function (b) { return '<button type="button" class="chip mono" data-b="' + b + '">' + b + " MIN</button>"; }).join("") + "</div>" +
@@ -185,7 +194,9 @@
       if (!rec) { ui.go("book"); return; }
       var landed = rec.status === "landed";
       var here = SF.airport(landed ? rec.to : rec.from);
-      var stamp = SF.store.state.stamps.filter(function (x) { return x.iata === rec.to; })[0];
+      // a time flight is never stamped, and the next flight leaves from where you are
+      var stamp = rec.free ? null : SF.store.state.stamps.filter(function (x) { return x.iata === rec.to; })[0];
+      var cur = SF.airport(SF.store.state.currentAirport) || here;
       var breaks = SF.store.state.settings.breaks;
       var stampCount = SF.store.state.stamps.length;
 
@@ -219,9 +230,9 @@
         '<aside class="arr-side">' +
         '<div class="glass passport-page"><div class="pp-head"><span class="label">' + (landed && stamp ? (rec.newStamp ? "Stamp issued" : "Stamp on file") : "No stamp") + '</span><span class="form-no">PASSPORT P.' + String(Math.max(1, stampCount)).padStart(2, "0") + "</span></div>" +
         (landed && stamp ? '<div class="stamp-wrap' + (rec.newStamp ? " fresh" : "") + '">' + SF.stampSVG(stamp, 240, { onDark: true }) + "</div>"
-          : '<div class="no-stamp">DIVERTED FLIGHTS ARE NOT STAMPED</div>') +
+          : '<div class="no-stamp">' + (rec.free ? "TIME FLIGHTS ARE NOT STAMPED" : "DIVERTED FLIGHTS ARE NOT STAMPED") + "</div>") +
         "</div>" +
-        nextCard(rec, here, breaks) +
+        nextCard(rec, cur, breaks) +
         "</aside></div>";
 
       inkSplash(root.querySelector(".stamp-wrap.fresh"));
@@ -245,8 +256,8 @@
       };
       var note = root.querySelector("#note");
       note.oninput = function () { updateFlight(rec.id, function (f) { f.note = note.value; }); };
-      function startLayover(min, journeyId) {
-        SF.store.update(function (s) { s.layover = { start: Date.now(), min: min, scale: SF.speed(), journeyId: journeyId || null }; }, true);
+      function startLayover(min, journeyId, at) {
+        SF.store.update(function (s) { s.layover = { start: Date.now(), min: min, scale: SF.speed(), journeyId: journeyId || null, at: at || null }; }, true);
         ui.go("layover");
       }
       var lb = root.querySelector("#layover");
@@ -255,15 +266,19 @@
         startLayover(+b.getAttribute("data-b"));
       };
       var jl = root.querySelector("#journeyLayover");
-      if (jl) jl.onclick = function () { startLayover(+jl.getAttribute("data-min"), rec.journeyId); };
+      if (jl) jl.onclick = function () { startLayover(+jl.getAttribute("data-min"), rec.journeyId, rec.free && landed ? rec.to : null); };
       var je = root.querySelector("#journeyEnd");
       if (je) je.onclick = function () {
-        ui.confirm("End journey", "Stop here. Completed legs stay in the logbook.", "End journey", true).then(function (ok) {
+        if (SF.journey.cycleDone()) { SF.journey.end("complete"); ui.go("arrival/" + rec.id); return; }
+        var pomo = SF.journey.active() && SF.journey.active().pomodoro;
+        ui.confirm(pomo ? "End Pomodoro" : "End journey", "Stop here. Completed " + (pomo ? "focus flights" : "legs") + " stay in the logbook.", pomo ? "End Pomodoro" : "End journey", true).then(function (ok) {
           if (!ok) return;
           SF.journey.end();
           ui.go("arrival/" + rec.id);
         });
       };
+      var ga = root.querySelector("#goAgain");
+      if (ga) ga.onclick = function () { if (SF.journey.again()) ui.go("board"); else ui.toast("No route available. Try again.", "alert"); };
       var nf = root.querySelector("#nextFlight");
       if (nf) nf.onclick = function () { ui.go("book"); };
       ui.updateGoal();
@@ -287,13 +302,14 @@
     mount: function (root) {
       var lo = SF.store.state.layover;
       if (!lo) { ui.go("book"); return; }
-      var here = SF.airport(SF.store.state.currentAirport);
+      var here = SF.airport(lo.at || SF.store.state.currentAirport);
       var total = lo.min * 60000, iv = null, finished = false;
       var def = SF.store.state.settings.defaultDuration;
       var j = SF.journey.active();
       var inJourney = !!(j && lo.journeyId === j.id);
+      var pomo = inJourney && j.pomodoro, done = inJourney && SF.journey.cycleDone(j), word = pomo ? "focus " : "leg ";
       var sugg = inJourney ? [] : SF.routeCandidates(here.iata, def, { max: 6 });
-      var autoStart = inJourney && SF.store.state.settings.journey.autoStart;
+      var autoStart = inJourney && !done && SF.store.state.settings.journey.autoStart;
       SF.audio.setScene("layover");   // rain, noise and pad carry on through the break; no engine
 
       root.innerHTML =
@@ -301,10 +317,14 @@
         '<p class="label">' + SF.esc(here.city) + " · Local " + SF.fmt.localTime(here.tz, new Date()) + "</p><h1>Break</h1>" +
         '<div class="lo-ring"><div id="loRing"></div><div class="lo-time" id="loTime">' + SF.fmt.clock(total) + "</div></div>" +
         '<p class="muted" id="loMsg">Leave the screen. Water. Look at something far away.</p>' +
-        (inJourney
-          ? '<div class="row-btns"><button class="btn btn-signal" id="loBoard">' + SF.icon("takeoff") + "<span>Board leg " + (j.index + 1) + "</span></button>" +
-            '<button class="btn btn-text" id="loEndJourney">End journey</button></div>' +
-            '<p class="small-print">' + (autoStart ? "Next leg boards automatically when the break ends." : "Next leg waits for you.") + "</p>"
+        (done
+          ? '<div class="row-btns"><button class="btn btn-signal" id="loAgain">' + SF.icon("refresh") + "<span>Go again</span></button>" +
+            '<button class="btn" id="loFinish">Finish</button></div>' +
+            '<p class="small-print">All ' + j.legs.length + " focus flights flown. Go again for another cycle, or finish.</p>"
+          : inJourney
+          ? '<div class="row-btns"><button class="btn btn-signal" id="loBoard">' + SF.icon("takeoff") + "<span>Board " + word + (j.index + 1) + "</span></button>" +
+            '<button class="btn btn-text" id="loEndJourney">' + (pomo ? "End Pomodoro" : "End journey") + "</button></div>" +
+            '<p class="small-print">' + (autoStart ? "Next " + word + "boards automatically when the break ends." : "Next " + word + "waits for you.") + "</p>"
           : '<div class="row-btns"><button class="btn" id="loEnd">End layover</button></div>') +
         "</section>" +
         '<section class="board" aria-label="Departures from ' + here.iata + '">' +
@@ -321,7 +341,8 @@
                 flaps(SF.flight.flightNo(here.iata, r.a.iata), 5) + flaps(r.a.city, 14) + flaps(SF.fmt.dur(def), 6) +
                 '<span class="status-cell">' + (i === 0 ? "BOARDING" : "SCHEDULED") + "</span></button>";
             }).join("")) + '<div class="board-fill" aria-hidden="true"></div></section></div>';
-      ui.topbar(ui.topbarTitle("Layover · " + here.iata), inJourney ? '<span class="leg-tag">JOURNEY · LEG ' + (j.index + 1) + (j.untilStop ? "" : " OF " + j.legs.length) + " NEXT</span>" : "");
+      ui.topbar(ui.topbarTitle((pomo ? "Break · " : "Layover · ") + here.iata), done ? '<span class="leg-tag">POMODORO · LONG BREAK</span>'
+        : inJourney ? '<span class="leg-tag">' + (pomo ? "POMODORO · FOCUS " : "JOURNEY · LEG ") + (j.index + 1) + (j.untilStop ? "" : " OF " + j.legs.length) + " NEXT</span>" : "");
       if (!ui.reducedMotion()) ui.$$(".flap", root).forEach(function (f) { f.classList.add("flip"); });
 
       function tick() {
@@ -333,11 +354,12 @@
         if (left <= 0 && !finished) {
           finished = true;
           clearInterval(iv);
-          root.querySelector("#loMsg").textContent = "Layover complete.";
+          root.querySelector("#loMsg").textContent = pomo ? "Break complete." : "Layover complete.";
           SF.ui.setTitle("");
           SF.ui.announce("Boarding", "Layover " + here.iata + " complete.", "takeoff");
           SF.store.update(function (s) { s.layover = null; }, true);
-          if (inJourney) { if (autoStart) boardNext(true); }
+          if (done) root.querySelector("#loMsg").textContent = "Long break complete. Go again or finish.";
+          else if (inJourney) { if (autoStart) boardNext(true); }
           else {
             root.querySelector("#loEnd").innerHTML = SF.icon("takeoff") + "<span>Book next flight</span>";
             root.querySelector("#loEnd").className = "btn btn-signal";
@@ -353,10 +375,24 @@
         SF.autoBoard = !!auto;
         ui.go("board");
       }
-      if (inJourney) {
+      if (done) {
+        root.querySelector("#loAgain").onclick = function () {
+          SF.store.update(function (s) { s.layover = null; }, true);
+          SF.autoBoard = false;
+          if (SF.journey.again()) ui.go("board"); else { ui.toast("No route available. Try again.", "alert"); ui.go("book"); }
+        };
+        root.querySelector("#loFinish").onclick = function () {
+          var lj = j;
+          SF.store.update(function (s) { s.layover = null; }, true);
+          SF.journey.end("complete");
+          var sum = SF.journey.summary(lj.id);
+          ui.toast("Pomodoro complete · " + sum.landed + " focus flights · " + SF.fmt.dur(sum.minutes), "check", 5000);
+          ui.go("book");
+        };
+      } else if (inJourney) {
         root.querySelector("#loBoard").onclick = function () { boardNext(false); };
         root.querySelector("#loEndJourney").onclick = function () {
-          ui.confirm("End journey", "Stop here. Completed legs stay in the logbook.", "End journey", true).then(function (ok) {
+          ui.confirm(pomo ? "End Pomodoro" : "End journey", "Stop here. Completed " + (pomo ? "focus flights" : "legs") + " stay in the logbook.", pomo ? "End Pomodoro" : "End journey", true).then(function (ok) {
             if (!ok) return;
             SF.store.update(function (s) { s.layover = null; }, true);
             SF.journey.end();

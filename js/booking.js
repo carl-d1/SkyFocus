@@ -64,19 +64,21 @@
     stage: true,
     mount: function (root) {
       var S = SF.store.state;
+      var home = S.currentAirport || S.profile.home;
       var sel = {
-        from: S.currentAirport || S.profile.home,
-        to: null,
+        // Destination flies from where you are. Time and Pomodoro fly random routes anywhere (from: their start).
+        from: home,
+        to: null, destTo: null,
         minutes: S.settings.defaultDuration,
-        // a preset (next-flight suggestion, pill "Book 25 min") is one flight, so Journey mode gives way to Time
-        mode: ["destination", "journey"].indexOf(S.settings.bookingMode) >= 0 && !(SF.bookPreset && S.settings.bookingMode === "journey") ? S.settings.bookingMode : "time",
+        // Destination is the standard; dev demos can open another mode
+        mode: SF.bookMode && !SF.bookPreset ? SF.bookMode : "destination",
         legs: 3, untilStop: false, plan: [],
         tagId: S.lastTagId || S.tags[0].id,
         seat: null,
         pool: [], poolIdx: 0, showOptions: false
       };
       var preset = SF.bookPreset;
-      SF.bookPreset = null;
+      SF.bookPreset = null; SF.bookMode = null;
       var mapObj = null;
 
       ui.topbar("", '<div class="glass goal-pill" id="homeGoal"></div>');
@@ -87,11 +89,11 @@
         '<header class="sheet-head"><div><p class="label">' + SF.esc((S.profile.name || "Passenger").toUpperCase()) + '</p><h1>Book flight</h1></div><div class="sheet-hero" id="bookHero" aria-hidden="true"></div><span class="form-no">FORM SF-01</span></header>' +
         '<div class="sheet-body">' +
         '<div id="pendingSlot"></div>' +
-        '<label class="field row"><span class="label">From</span><div><input id="fromInput" class="from-locked" readonly tabindex="-1" aria-label="Departure airport, where you last landed" title="You fly from where you last landed"></div></label>' +
+        '<label class="field row"><span class="label">From</span><div><input id="fromInput" class="from-locked" readonly tabindex="-1" aria-label="Departure airport"></div></label>' +
         '<div class="seg seg-wide" id="modeSeg" role="radiogroup" aria-label="Booking mode">' +
-        '<button type="button" role="radio" class="seg-btn" data-mode="time" title="Pick my time">' + SF.icon("clock") + "<span>Time</span></button>" +
         '<button type="button" role="radio" class="seg-btn" data-mode="destination" title="Pick my destination">' + SF.icon("compass") + "<span>Destination</span></button>" +
-        '<button type="button" role="radio" class="seg-btn" data-mode="journey" title="Journey: several legs with layovers">' + SF.icon("route") + "<span>Journey</span></button></div>" +
+        '<button type="button" role="radio" class="seg-btn" data-mode="time" title="Pick a length: a random route anywhere, no stamp">' + SF.icon("clock") + "<span>Time</span></button>" +
+        '<button type="button" role="radio" class="seg-btn" data-mode="journey" title="Pomodoro: 4 focus flights of 25 min with breaks">' + SF.icon("route") + "<span>Pomodoro</span></button></div>" +
         '<div id="modePanel"></div>' +
         '<label class="field row"><span class="label">Task</span><input id="taskInput" maxlength="80" placeholder="What are you working on?"></label>' +
         '<div class="field row"><span class="label">Tag</span><div class="tag-grid" id="tagChips"></div></div>' +
@@ -105,16 +107,33 @@
 
       var $ = function (id) { return document.getElementById(id); };
       var fromInput = $("fromInput");
-      function setFromLabel() { var a = SF.airport(sel.from); fromInput.value = a.city + " (" + a.iata + ")"; }
+      function setFromLabel() {
+        var a = SF.airport(sel.from);
+        fromInput.value = a.city + " (" + a.iata + ")";
+        fromInput.title = sel.mode === "destination" ? "You fly from where you last landed" : "Random start: time flights do not move you";
+      }
+      // Time and Pomodoro: what they leave alone
+      function freeNote() {
+        return '<p class="small-print">Random routes anywhere. No stamps, and you stay in ' + SF.esc(SF.airport(home).city) + ".</p>";
+      }
 
       /* ---------- pending (booked, not departed) ---------- */
       function renderPending() {
         var af = SF.store.state.activeFlight, box = $("pendingSlot"), jn = SF.journey.active();
+        if (!af && jn && SF.journey.cycleDone(jn)) {
+          // a Pomodoro with every focus flown (long break left early): go again or finish
+          box.innerHTML = '<div class="notice">' + SF.icon("route") + "<span>Pomodoro cycle complete.</span>" +
+            '<button class="btn btn-signal small" id="jAgain">Go again</button><button class="btn small" id="jFinish">Finish</button></div>';
+          $("jAgain").onclick = function () { if (SF.journey.again()) ui.go("board"); };
+          $("jFinish").onclick = function () { SF.journey.end("complete"); renderPending(); };
+          return;
+        }
         if (!af && jn && !jn.legs[jn.index]) SF.journey.end();   // a journey with no leg left to fly cannot resume
         if (!af && jn && jn.legs[jn.index]) {
           // a journey between legs (layover left early): resume or end it
-          box.innerHTML = '<div class="notice">' + SF.icon("route") + "<span>Journey in progress. Next: <b class=\"mono\">leg " + (jn.index + 1) + " " + jn.legs[jn.index].from + " to " + jn.legs[jn.index].to + "</b>.</span>" +
-            '<button class="btn btn-signal small" id="jResume">Board</button><button class="btn small" id="jEnd">End journey</button></div>';
+          var pw = jn.pomodoro ? "focus " : "leg ";
+          box.innerHTML = '<div class="notice">' + SF.icon("route") + "<span>" + (jn.pomodoro ? "Pomodoro" : "Journey") + " in progress. Next: <b class=\"mono\">" + pw + (jn.index + 1) + " " + jn.legs[jn.index].from + " to " + jn.legs[jn.index].to + "</b>.</span>" +
+            '<button class="btn btn-signal small" id="jResume">Board</button><button class="btn small" id="jEnd">' + (jn.pomodoro ? "End Pomodoro" : "End journey") + "</button></div>";
           $("jResume").onclick = function () { SF.journey.bookLeg(jn.index); ui.go("board"); };
           $("jEnd").onclick = function () { SF.journey.end(); renderPending(); };
           return;
@@ -135,27 +154,15 @@
         });
         var p = $("modePanel");
         if (sel.mode === "journey") {
-          var jc = SF.store.state.settings.journey;
-          p.innerHTML = '<div class="field row"><span class="label">Legs</span><div class="leg-grid" id="legChips" role="group" aria-label="Number of legs">' +
-            [2, 3, 4, 6, 8].map(function (n) { var on = !sel.untilStop && n === sel.legs; return '<button type="button" class="chip mono' + (on ? " on" : "") + '" data-l="' + n + '" aria-pressed="' + on + '">' + n + "</button>"; }).join("") +
-            '<button type="button" class="chip' + (sel.untilStop ? " on" : "") + '" data-l="open" aria-pressed="' + sel.untilStop + '" title="Until I stop">Open</button></div></div>' +
-            '<div class="field row"><span class="label">Plan</span><p class="journey-spec readout readout-sm">' + jc.legMin + " MIN LEGS · " + jc.shortBreak + " MIN LAYOVERS · " + jc.longBreak + " MIN EVERY " + jc.longEvery + (jc.longEvery === 1 ? "ST" : jc.longEvery === 2 ? "ND" : jc.longEvery === 3 ? "RD" : "TH") +
-            '<a class="btn btn-text small" href="#/settings">Edit</a></p></div>';
-          p.querySelector("#legChips").addEventListener("click", function (e) {
-            var b = e.target.closest("[data-l]");
-            if (!b) return;
-            var v = b.getAttribute("data-l");
-            sel.untilStop = v === "open";
-            if (!sel.untilStop) sel.legs = +v;
-            renderMode(); planJourney();
-          });
+          var P = SF.journey.POMODORO;
+          p.innerHTML = '<div class="field row"><span class="label">Plan</span><p class="journey-spec readout readout-sm">' + P.legs + " × " + P.focus + " MIN FOCUS · " + P.shortBreak + " MIN BREAKS · " + P.longBreak + " MIN LONG BREAK</p></div>" + freeNote();
           return;
         }
         if (sel.mode === "time") {
           var custom = DURATIONS.indexOf(sel.minutes) < 0;
           p.innerHTML = '<div class="field row"><span class="label">Min</span><div class="dur-grid dur-chips" role="group" aria-label="Focus length in minutes">' + DURATIONS.map(function (m) {
             return '<button type="button" class="chip mono' + (m === sel.minutes ? " on" : "") + '" data-m="' + m + '" aria-pressed="' + (m === sel.minutes) + '">' + m + "</button>";
-          }).join("") + '<label class="chip chip-input' + (custom ? " on" : "") + '"><input type="number" id="customMin" min="5" max="600" step="5" value="' + (custom ? sel.minutes : "") + '" placeholder="Other" aria-label="Other length in minutes"></label></div></div>';
+          }).join("") + '<label class="chip chip-input' + (custom ? " on" : "") + '"><input type="number" id="customMin" min="5" max="600" step="5" value="' + (custom ? sel.minutes : "") + '" placeholder="Other" aria-label="Other length in minutes"></label></div></div>' + freeNote();
           p.querySelector(".dur-chips").addEventListener("click", function (e) {
             var b = e.target.closest("[data-m]");
             if (!b) return;
@@ -245,24 +252,41 @@
       }
 
       /* ---------- picking ---------- */
-      // Time mode: the app picks. fresh=true rebuilds the candidate pool.
+      // Time mode: random routes anywhere close to the chosen length, each from a different start.
+      function anywhere(minutes, seed) {
+        var r = SF.rng(seed), list = window.AIRPORTS, out = [], seen = {};
+        for (var t = 0; t < 60; t++) {
+          var o = list[Math.floor(r() * list.length)];
+          if (seen[o.iata]) continue;
+          seen[o.iata] = 1;
+          var c = SF.routeCandidates(o.iata, minutes, { max: 3 });
+          var best = c[Math.floor(r() * c.length)];
+          if (best) out.push({ from: o.iata, a: best.a, km: best.km, fit: best.fit });
+        }
+        // the closest fits (a short length still gets the shortest hops), in random order
+        return shuffle(out.sort(function (x, y) { return x.fit - y.fit; }).slice(0, 8), seed + 1);
+      }
+      // Time mode: the app picks. fresh=true draws a new set of routes.
       function pick(fresh) {
         if (fresh || !sel.pool.length) {
-          sel.pool = shuffle(SF.routeCandidates(sel.from, sel.minutes), Date.now());
+          sel.pool = anywhere(sel.minutes, Date.now());
           sel.poolIdx = 0;
         } else {
           sel.poolIdx = (sel.poolIdx + 1) % sel.pool.length;
         }
         var c = sel.pool[sel.poolIdx];
         sel.to = c ? c.a.iata : null;
+        if (c) sel.from = c.from;
+        setFromLabel();
         reveal();
       }
-      // Journey mode: plan a chain of legs from the departure airport.
+      // Pomodoro: four 25 minute legs chained from a random airport.
       function planJourney() {
-        var jc = SF.store.state.settings.journey;
-        sel.plan = SF.journey.plan(sel.from, sel.untilStop ? 6 : sel.legs, jc.legMin, Date.now());
+        sel.plan = SF.journey.planCycle(Date.now());
         sel.to = sel.plan.length ? sel.plan[0].to : null;
-        sel.minutes = jc.legMin;
+        if (sel.plan.length) sel.from = sel.plan[0].from;
+        sel.minutes = SF.journey.POMODORO.focus;
+        setFromLabel();
         reveal();
       }
       function chooseDestination(code) {
@@ -335,17 +359,18 @@
       function renderCard() {
         var box = $("destCard");
         if (sel.mode === "journey") {
-          var jc = SF.store.state.settings.journey;
-          if (!sel.plan.length) { box.innerHTML = '<p class="label">Itinerary</p><p class="muted">No route available.</p>'; return; }
-          var total = sel.plan.reduce(function (a, l) { return a + l.km; }, 0);
+          var P = SF.journey.POMODORO;
+          if (!sel.plan.length) { box.innerHTML = '<p class="label">Pomodoro</p><p class="muted">No route available.</p>'; return; }
+          var total = sel.plan.reduce(function (a, l) { return a + l.km; }, 0), rest = 0;
           box.innerHTML =
-            '<div class="dc-head"><p class="label">' + (sel.untilStop ? "Itinerary · open, first " + sel.plan.length + " legs" : "Itinerary · " + sel.plan.length + " legs") + "</p></div>" +
+            '<div class="dc-head"><p class="label">Pomodoro · ' + sel.plan.length + " focus flights</p></div>" +
             '<ol class="itinerary">' + sel.plan.map(function (l, i) {
-              var b = SF.airport(l.to), brk = i < sel.plan.length - 1 || sel.untilStop ? SF.journey.breakAfter(i + 1, jc) : null;
+              var b = SF.airport(l.to), brk = SF.journey.breakAfter(i + 1, P);
+              rest += brk;
               return '<li data-leg="' + i + '" title="' + SF.esc(b.city) + '"><span class="readout it-n">' + String(i + 1).padStart(2, "0") + '</span><b class="mono">' + l.from + " → " + l.to + '</b><span class="it-city">' + SF.esc(b.city) + '</span><small class="mono">' + SF.fmt.dist(l.km) + "</small>" +
-                (brk ? '<small class="it-break mono">+' + brk + " MIN</small>" : '<small class="it-break mono">END</small>') + "</li>";
+                '<small class="it-break mono">+' + brk + " MIN</small></li>";
             }).join("") + "</ol>" +
-            '<dl class="dc-facts mono"><div><dt>Focus</dt><dd>' + SF.fmt.dur(sel.plan.length * jc.legMin) + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(total) + "</dd></div><div><dt>Stops</dt><dd>" + sel.plan.length + "</dd></div></dl>" +
+            '<dl class="dc-facts mono"><div><dt>Focus</dt><dd>' + SF.fmt.dur(sel.plan.length * P.focus) + "</dd></div><div><dt>Breaks</dt><dd>" + SF.fmt.dur(rest) + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(total) + "</dd></div></dl>" +
             '<div class="dc-actions"><button class="btn" id="reroll">' + SF.icon("refresh") + "<span>Reroll</span></button></div>";
           $("reroll").onclick = planJourney;
           return;
@@ -356,20 +381,21 @@
         }
         var A = SF.airport(sel.from), B = SF.airport(sel.to), km = SF.geo.distanceKm(A, B);
         var key = sel.from + "-" + sel.to, fav = (SF.store.state.favourites || []).indexOf(key) >= 0;
-        var others = sel.mode === "time" ? sel.pool.filter(function (c) { return c.a.iata !== sel.to; }) : [];
+        var timeMode = sel.mode === "time";
+        var others = timeMode ? sel.pool.filter(function (c) { return c.from + c.a.iata !== sel.from + sel.to; }) : [];
         box.innerHTML =
-          '<div class="dc-head"><p class="label">' + (sel.mode === "time" ? "Assigned destination" : "Destination") + '</p>' +
-          '<button class="btn icon-only fav' + (fav ? " on" : "") + '" id="favBtn" aria-pressed="' + fav + '" aria-label="' + (fav ? "Remove from" : "Add to") + ' favourite routes">' + SF.icon("star", fav ? "fill" : "") + "</button></div>" +
+          '<div class="dc-head"><p class="label">' + (timeMode ? "Assigned route · no stamp" : "Destination") + '</p>' +
+          (timeMode ? "" : '<button class="btn icon-only fav' + (fav ? " on" : "") + '" id="favBtn" aria-pressed="' + fav + '" aria-label="' + (fav ? "Remove from" : "Add to") + ' favourite routes">' + SF.icon("star", fav ? "fill" : "") + "</button>") + "</div>" +
           '<div class="dc-route"><b class="mono dc-code">' + B.iata + '</b><div><span class="dc-city">' + SF.esc(B.city) + "</span><small>" + SF.esc(B.country) + '</small></div></div>' +
           '<dl class="dc-facts mono"><div><dt>From</dt><dd>' + A.iata + "</dd></div><div><dt>Distance</dt><dd>" + SF.fmt.dist(km) + "</dd></div><div><dt>Block</dt><dd>" + SF.fmt.dur(sel.minutes) + "</dd></div></dl>" +
           (sel.mode === "time" ?
             '<div class="dc-actions"><button class="btn" id="reroll">' + SF.icon("refresh") + '<span>Reroll</span></button>' +
             (others.length ? '<button class="btn btn-text" id="optToggle" aria-expanded="' + sel.showOptions + '">' + (sel.showOptions ? "Hide options" : "See other options") + "</button>" : "") + "</div>" +
             (sel.showOptions ? '<ul class="dc-options" role="listbox" aria-label="Other destinations">' + others.slice(0, 6).map(function (c) {
-              return '<li><button type="button" role="option" data-code="' + c.a.iata + '"><b class="mono">' + c.a.iata + "</b><span>" + SF.esc(c.a.city) + '</span><small class="mono">' + SF.fmt.dist(c.km) + "</small></button></li>";
+              return '<li><button type="button" role="option" data-code="' + c.a.iata + '" data-from="' + c.from + '"><b class="mono">' + c.from + " → " + c.a.iata + "</b><span>" + SF.esc(c.a.city) + '</span><small class="mono">' + SF.fmt.dist(c.km) + "</small></button></li>";
             }).join("") + "</ul>" : "")
             : "");
-        $("favBtn").onclick = function () {
+        if ($("favBtn")) $("favBtn").onclick = function () {
           SF.store.update(function (s) {
             var i = s.favourites.indexOf(key);
             if (i >= 0) s.favourites.splice(i, 1); else s.favourites.unshift(key);
@@ -383,16 +409,17 @@
         var ol = box.querySelector(".dc-options");
         if (ol) ol.onclick = function (e) {
           var b = e.target.closest("[data-code]"); if (!b) return;
-          var code = b.getAttribute("data-code");
-          sel.poolIdx = sel.pool.map(function (c) { return c.a.iata; }).indexOf(code);
-          sel.to = code;
+          var code = b.getAttribute("data-code"), from = b.getAttribute("data-from");
+          sel.poolIdx = sel.pool.map(function (c) { return c.from + c.a.iata; }).indexOf(from + code);
+          sel.to = code; sel.from = from;
+          setFromLabel();
           reveal();
         };
       }
 
       function renderSummary() {
         $("printPass").disabled = !(sel.to && sel.seat) || (sel.mode === "journey" && !sel.plan.length);
-        $("printPass").querySelector("span").textContent = sel.mode === "journey" ? "Start journey" : "Print boarding pass";
+        $("printPass").querySelector("span").textContent = sel.mode === "journey" ? "Start Pomodoro" : "Print boarding pass";
         var dc = sel.mode === "journey" ? null : root.querySelector(".dc-facts div:last-child dd");
         if (dc) dc.textContent = SF.fmt.dur(sel.minutes);
       }
@@ -464,7 +491,7 @@
           if (!sel.plan.length) return;
           var jt = SF.tag(sel.tagId), jb = SF.bandForTag(sel.tagId);
           SF.store.update(function (s) { s.lastTagId = jt.id; });
-          SF.journey.start({ legs: sel.plan, untilStop: sel.untilStop, tagId: jt.id, task: $("taskInput").value.trim(), seat: sel.seat, cls: jt.builtin ? jt.cls : jb.name });
+          SF.journey.start({ legs: sel.plan, tagId: jt.id, task: $("taskInput").value.trim(), seat: sel.seat, cls: jt.builtin ? jt.cls : jb.name });
           ui.go("board");
           return;
         }
@@ -472,7 +499,8 @@
         var af = SF.flight.create({
           from: sel.from, to: sel.to, minutes: Math.max(1, Math.round(sel.minutes)), tagId: tag.id,
           seat: sel.seat, cls: tag.builtin ? tag.cls : band.name,
-          task: $("taskInput").value.trim()
+          task: $("taskInput").value.trim(),
+          free: sel.mode === "time"
         });
         SF.store.update(function (s) { s.activeFlight = af; s.lastTagId = tag.id; }, true);
         ui.go("board");
@@ -481,14 +509,16 @@
       $("modeSeg").addEventListener("click", function (e) {
         var b = e.target.closest("[data-mode]");
         if (!b || b.getAttribute("data-mode") === sel.mode) return;
+        if (sel.mode === "destination") sel.destTo = sel.to;   // kept for coming back
         sel.mode = b.getAttribute("data-mode");
-        SF.store.update(function (s) { s.settings.bookingMode = sel.mode; });
         sel.showOptions = false;
         renderMode();
         if (sel.mode === "journey") planJourney();
         else if (sel.mode === "time") { sel.minutes = DURATIONS.indexOf(sel.minutes) >= 0 ? sel.minutes : SF.store.state.settings.defaultDuration; renderMode(); pick(true); }
-        else if (sel.to) chooseDestination(sel.to);
-        else reveal();
+        else {
+          sel.from = home; sel.to = sel.destTo; setFromLabel(); renderDestList(); renderQuick();
+          if (sel.to) chooseDestination(sel.to); else reveal();
+        }
       });
 
       // The departure airport is always where you last landed; it cannot be changed here.
@@ -509,15 +539,8 @@
         return { left: sheet.getBoundingClientRect().right + gut, top: bar.getBoundingClientRect().bottom + gut, right: right, bottom: gut };
       }
       setFromLabel(); renderPending(); renderGoal(); renderTags(); renderMode();
-      if (preset && SF.airport(preset.to) && preset.to !== sel.from) {
-        if (preset.minutes) sel.minutes = preset.minutes;
-        if (sel.mode === "time") {
-          sel.pool = SF.routeCandidates(sel.from, sel.minutes);
-          var idx = sel.pool.map(function (c) { return c.a.iata; }).indexOf(preset.to);
-          if (idx < 0) { var B = SF.airport(preset.to); sel.pool.unshift({ a: B, km: SF.geo.distanceKm(SF.airport(sel.from), B), fit: 0 }); idx = 0; }
-          sel.poolIdx = idx; sel.to = preset.to; reveal();
-        } else chooseDestination(preset.to);
-      } else if (sel.mode === "journey") planJourney();
+      if (preset && SF.airport(preset.to) && preset.to !== sel.from) chooseDestination(preset.to);
+      else if (sel.mode === "journey") planJourney();
       else if (sel.mode === "time") pick(true);
       else reveal();
       var hero = SF.hero.mount($("bookHero"), { view: "side" });

@@ -109,6 +109,8 @@
         gate: "ABCDEF".charAt(Math.floor(rnd() * 6)) + (1 + Math.floor(rnd() * 38)),
         task: b.task || "",
         journeyId: b.journeyId || null, legIndex: b.legIndex == null ? null : b.legIndex, legCount: b.legCount || null,
+        // a time flight (Time mode or a Pomodoro focus): a random route anywhere, no stamp, no change of location
+        free: !!b.free, pomodoro: !!b.pomodoro,
         bookedAt: Date.now(),
         cruiseAlt: cruiseAltFor(km),
         timeScale: SF.speed(),
@@ -190,6 +192,7 @@
         timeScale: af.timeScale,
         outcome: null, note: "", newStamp: false,
         journeyId: af.journeyId || null, legIndex: af.legIndex == null ? null : af.legIndex, legCount: af.legCount || null,
+        free: !!af.free, pomodoro: !!af.pomodoro,
         // The flown track: route progress plus every hold, enough to redraw the real path.
         track: {
           routeFrac: Math.round(st.routeFrac * 10000) / 10000,
@@ -409,7 +412,7 @@
       document.body.classList.remove("airplane");
       SF.ui.exitFullscreen();
       SF.store.update(function (s) {
-        if (rec.status === "landed") {
+        if (rec.status === "landed" && !rec.free) {
           var dest = SF.airport(rec.to);
           var seen = s.stamps.some(function (x) { return x.iata === rec.to; });
           if (!seen) {
@@ -418,8 +421,9 @@
           }
         }
         s.flights.push(rec);
-        s.currentAirport = newAirport;
         s.activeFlight = null;
+        if (rec.free) return;   // a time flight leaves you where you were
+        s.currentAirport = newAirport;
         s.recentRoutes = [rec.from + "-" + rec.to].concat((s.recentRoutes || []).filter(function (r) { return r !== rec.from + "-" + rec.to; })).slice(0, 6);
       }, true);
       if (SF.journey) SF.journey.afterFlight(rec);
