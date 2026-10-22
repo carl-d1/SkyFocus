@@ -84,6 +84,7 @@ body.airplane .ft-tools .seg, body.airplane .dev-row { display: none; }
 .sheet-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-4); padding-bottom: var(--s-3); border-bottom: 1px solid var(--glass-rule); }
 .sheet-head h1 { margin-top: var(--s-1); }
 .field.row { grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: var(--s-3); }
+input.from-locked { cursor: default; pointer-events: none; }
 .dur-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--s-1); }
 .dur-grid .chip { padding: 0; }
 .dur-grid .chip-input { grid-column: span 2; }

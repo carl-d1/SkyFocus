@@ -87,7 +87,7 @@
         '<header class="sheet-head"><div><p class="label">' + SF.esc((S.profile.name || "Passenger").toUpperCase()) + '</p><h1>Book flight</h1></div><div class="sheet-hero" id="bookHero" aria-hidden="true"></div><span class="form-no">FORM SF-01</span></header>' +
         '<div class="sheet-body">' +
         '<div id="pendingSlot"></div>' +
-        '<label class="field row"><span class="label">From</span><div><input id="fromInput" aria-label="Departure airport"></div></label>' +
+        '<label class="field row"><span class="label">From</span><div><input id="fromInput" class="from-locked" readonly tabindex="-1" aria-label="Departure airport, where you last landed" title="You fly from where you last landed"></div></label>' +
         '<div class="seg seg-wide" id="modeSeg" role="radiogroup" aria-label="Booking mode">' +
         '<button type="button" role="radio" class="seg-btn" data-mode="time" title="Pick my time">' + SF.icon("clock") + "<span>Time</span></button>" +
         '<button type="button" role="radio" class="seg-btn" data-mode="destination" title="Pick my destination">' + SF.icon("compass") + "<span>Destination</span></button>" +
@@ -190,9 +190,7 @@
             var b = e.target.closest("[data-route]");
             if (!b) return;
             var parts = b.getAttribute("data-route").split("-");
-            if (!SF.airport(parts[0]) || !SF.airport(parts[1])) return;
-            sel.from = parts[0];
-            setFromLabel();
+            if (parts[0] !== sel.from || !SF.airport(parts[1])) return;
             chooseDestination(parts[1]);
           });
           renderDestList(); renderQuick(); renderMinutes();
@@ -234,7 +232,9 @@
       function renderQuick() {
         var s = SF.store.state, box = $("quickRoutes");
         if (!box) return;
-        var fav = s.favourites || [], recent = (s.recentRoutes || []).filter(function (r) { return fav.indexOf(r) < 0; });
+        // only routes that leave from where you are now
+        function here(r) { return r.split("-")[0] === sel.from; }
+        var fav = (s.favourites || []).filter(here), recent = (s.recentRoutes || []).filter(function (r) { return fav.indexOf(r) < 0 && here(r); });
         if (!fav.length && !recent.length) { box.innerHTML = ""; return; }
         function chip(r, star) {
           var parts = r.split("-");
@@ -491,13 +491,7 @@
         else reveal();
       });
 
-      ui.airportPicker(fromInput, function (a) {
-        sel.from = a.iata;
-        if (sel.to === a.iata) sel.to = null;
-        if (sel.mode === "journey") planJourney();
-        else if (sel.mode === "time") pick(true);
-        else { renderDestList(); if (sel.to) chooseDestination(sel.to); else reveal(); }
-      });
+      // The departure airport is always where you last landed; it cannot be changed here.
 
       function renderGoal() {
         var today = SF.stats.todayMinutes(), goal = SF.store.state.settings.dailyGoalMin;
