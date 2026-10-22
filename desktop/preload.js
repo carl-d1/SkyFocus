@@ -37,6 +37,17 @@ contextBridge.exposeInMainWorld("skyfocusDesktop", {
     set: (urls) => ipcRenderer.invoke("ypt:set", urls),
     send: (kind) => ipcRenderer.invoke("ypt:send", kind)
   },
+  // updates from GitHub Releases
+  updates: {
+    state: () => ipcRenderer.invoke("update:state"),
+    check: () => ipcRenderer.send("update:check"),
+    download: () => ipcRenderer.send("update:download"),
+    install: () => ipcRenderer.send("update:install"),
+    on: (cb) => {
+      const offs = ["available", "none", "progress", "ready", "error"].map((k) => listen("update:" + k, (d) => cb(k, d)));
+      return () => offs.forEach((off) => off());
+    }
+  },
   // glass refraction map cache (a cache only: never the app data)
   glassMaps: {
     load: () => ipcRenderer.sendSync("glass:load"),

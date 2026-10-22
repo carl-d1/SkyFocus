@@ -499,6 +499,50 @@ function testHooks() {
   });
 }
 
+/* ---------- updates: GitHub Releases (carl-d1/SkyFocus) ----------
+   The installed app checks shortly after start and every few hours. The page shows the popup: download
+   on request, then restart to install (or it installs on the next quit). The portable exe cannot replace
+   itself, so it offers the download page instead. */
+const RELEASES = "https://github.com/carl-d1/SkyFocus/releases/latest";
+const PORTABLE = !!process.env.PORTABLE_EXECUTABLE_DIR;
+let updater = null, updateInfo = null, updateReady = false;
+function toPage(channel, data) { if (win && !win.isDestroyed()) win.webContents.send(channel, data); }
+function setupUpdates() {
+  const allowed = app.isPackaged && (!TEST || process.env.SKYFOCUS_UPDATE_TEST);
+  if (!allowed) return;
+  try { updater = require("electron-updater").autoUpdater; } catch (e) { diag("updater unavailable: " + e.message); return; }
+  updater.autoDownload = false;
+  updater.autoInstallOnAppQuit = !PORTABLE;
+  updater.on("update-available", (info) => {
+    updateInfo = { version: info.version, notes: typeof info.releaseNotes === "string" ? info.releaseNotes : "", current: app.getVersion(), portable: PORTABLE };
+    toPage("update:available", updateInfo);
+  });
+  updater.on("update-not-available", () => toPage("update:none", { current: app.getVersion() }));
+  updater.on("download-progress", (p) => toPage("update:progress", { percent: Math.round(p.percent || 0) }));
+  updater.on("update-downloaded", () => { updateReady = true; toPage("update:ready", updateInfo); });
+  updater.on("error", (err) => { diag("update: " + String(err && err.message ? err.message : err).split("\n")[0]); toPage("update:error", {}); });
+  const check = () => { if (!updateReady) updater.checkForUpdates().catch(() => { /* reported by the error event */ }); };
+  setTimeout(check, +(process.env.SKYFOCUS_UPDATE_DELAY || 8000));
+  setInterval(check, 4 * 3600 * 1000);
+}
+ipcMain.on("update:check", (e) => {
+  if (!fromApp(e)) return;
+  if (!updater) toPage("update:none", { current: app.getVersion(), unavailable: true });
+  else if (updateReady) toPage("update:ready", updateInfo);
+  else updater.checkForUpdates().catch(() => {});
+});
+ipcMain.on("update:download", (e) => {
+  if (!fromApp(e) || !updater) return;
+  if (PORTABLE) { openExternal(RELEASES); return; }
+  updater.downloadUpdate().catch(() => {});
+});
+ipcMain.on("update:install", (e) => {
+  if (!fromApp(e) || !updater || !updateReady) return;
+  quitting = true; yptStopped = true;
+  setImmediate(() => updater.quitAndInstall(true, true));   // silent install, then SkyFocus starts again
+});
+ipcMain.handle("update:state", (e) => fromApp(e) ? { current: app.getVersion(), info: updateInfo, ready: updateReady, enabled: !!updater, portable: PORTABLE } : null);
+
 /* ---------- start ---------- */
 // Quitting while YPT runs stops it first (up to 3 s), so the phone is not left counting.
 let yptStopped = false;
@@ -516,4 +560,5 @@ app.whenReady().then(() => {
   createMain();
   createTray();
   testHooks();
+  setupUpdates();
 });

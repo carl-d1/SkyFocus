@@ -21,10 +21,10 @@ A small dismissible banner explains this when you open the file directly.
 
 ## Desktop app (Windows)
 
-The finished builds are in `dist/`:
+Download from [Releases](https://github.com/carl-d1/SkyFocus/releases/latest), or build them into `dist/`:
 
-- `dist\SkyFocus-1.0.0-portable.exe`: run it from anywhere. No install and no admin rights.
-- `dist\SkyFocus-1.0.0-setup.exe`: installer with Start menu and desktop shortcuts and an uninstaller.
+- `SkyFocus-<version>-setup.exe`: installer with Start menu and desktop shortcuts and an uninstaller. **Updates itself**: it checks GitHub Releases shortly after start and every few hours, and a popup offers the new version. Download, then Restart now (or it installs the next time you quit). The popup waits while a flight or break is running. Settings, Your data, has Check for updates.
+- `SkyFocus-<version>-portable.exe`: run it from anywhere. No install and no admin rights. It cannot replace itself, so its update popup opens the download page.
 
 The desktop app works fully offline (libraries, fonts and globe imagery are bundled in `vendor/`); only the Classic and Satellite map tiles need the internet, and the built-in map stands in with an "Offline" note when they cannot load. Its data is stored separately from the browser version: on first launch it offers to import a JSON export, and Settings has Backup now and Open data folder.
 
@@ -168,7 +168,7 @@ Done:
 - Glass and paper design system (DESIGN.md), Smoked glass variant, spacing scale and shell grid, glass lab (`?lab=1`).
 - Maps: Classic (Esri dark or light canvas basemap) and Satellite (Esri World Imagery) through Leaflet 1.9.4, and a three.js r149 3D globe with real day and night imagery blended along the terminator. Each mode shows the built-in map instantly, swaps to the real one when its library loads, and keeps the built-in map (flat or canvas globe) if the network, tiles or WebGL are unavailable.
 - Holding pattern: while holding, the plane flies a racetrack loop at its position on every map. Each flight records its real track (route progress plus every hold), shown on the arrival report's route chart and replayed in the logbook.
-- Pomodoro journeys: book a chain of 2 to 8 legs (or an open journey) between nearby airports. Each leg is a normal focus flight, layovers are the breaks (short after each leg, long after every Nth), with optional auto boarding. Lengths are set in Settings, and the logbook groups the legs of each journey.
+- Booking modes. **Destination** (the standard): fly from where you last landed to any airport; you can only depart from your current airport. **Time**: pick a length and get a random route of that length anywhere in the world; it is logged and counts in stats, but gives no stamp and does not move you. **Pomodoro**: four 25 minute focus flights (random routes like Time mode) with 5 minute breaks and a 10 minute long break, then Go again or Finish; the logbook groups each cycle.
 - Takeoff and landing scenes: after boarding, a skippable 3D takeoff (line up, roll with runway lights streaking, rotation, gear up, climb through cloud) hands over to the in-flight map. Each landing plays a descent through cloud, touchdown with a small bounce and tyre smoke, and rollout before the arrival report. Lighting follows the real sun at the airport, including night with runway, approach and city lights. Reduced motion, no WebGL or no network gives a 2D side view instead. Settings has a switch to turn the scenes off. The countdown is gone, and Board stays locked until the pre-departure check is complete.
 - Motion pass: real spring curves for UI transitions (`js/motion.js`), a 3D hero plane on the check-in screen and booking sheet that tilts toward the pointer, hover previews on the booking map (the city pulses and an arc traces to it), a boarding pass that slides in, turns over to its printed reverse and tears along the perforation, a destination card that morphs into the pass on the way to the gate (View Transitions), banking into turns and a slow camera drift in flight, and an ink splash when a new stamp lands.
 - Holds scale with the flight: one per full hour of block time, at least one.
@@ -177,9 +177,7 @@ Done:
 - Stats (S): membership card and tier progress, totals, last 14 days, focus by tag, time of day (Chart.js 4.4.1, with built-in bars offline), a 12 month heatmap, every route flown on a map, passport progress by continent and the achievements grid.
 - 26 achievements with progress, and five frequent-flyer tiers by focus miles (Contrail, Stratus 2,500, Cirrus 10,000, Jetstream 30,000, Aurora 75,000), each with its own paper membership card. New unlocks and tier changes turn over as cards with a sweep of light after landing.
 
-Next:
-- Final end-to-end test at ?dev=1 over start.bat and file://, including a 3-leg journey with a hold in leg 2
-- Stats dashboard, achievements and frequent-flyer tiers
+- Desktop app with auto-update from GitHub Releases.
 
 ## Credits
 

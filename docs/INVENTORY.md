@@ -7,18 +7,18 @@ The checklist for testing every build (browser over start.bat, file://, and the 
 | Screen | Route | What to check |
 |---|---|---|
 | Check-in | `#/welcome` | Name, home airport picker, default block time, 3D hero plane with pointer tilt |
-| Book | `#/book` | Time, Destination and Journey modes; duration chips and Other; reveal arc; Reroll; See other options with hover preview (pulsing city, traced arc); favourites; seat map by tag class; tag editor; hero plane in the sheet header; pending pass and journey notices |
+| Book | `#/book` | Destination (default, from your current airport), Time (random route anywhere, no stamp) and Pomodoro modes; duration chips and Other; reveal arc; Reroll; See other options with hover preview (pulsing city, traced arc); favourites; seat map by tag class; tag editor; hero plane in the sheet header; pending pass and journey notices |
 | Gate | `#/board` | Destination card morphs into the pass; pass slides in, turns over (click or Turn over), tilts toward the pointer; pre-departure checklist locks Board until all ticked; airplane mode switch; journey auto-board bar; stamp and stub tear on Board |
 | Takeoff scene | overlay | 3D runway takeoff with real sun lighting, runway lights streaking, gear up, climb through cloud; Space, Enter, Esc or click skips; 2D fallback with reduced motion or no WebGL |
 | In flight | `#/flight` | Map modes Classic, Satellite, 3D Globe (M); camera follow or route (C); window view (W); sound panel (N mutes); airplane mode (F); Hold and Resume (Space); holds limited to one per full hour; racetrack hold on every map; banking; divert or End journey; instrument strip (time, phases, segments, altitude tape, GS, VS, heading tape, flown, remain, ETA local and destination); dev jump buttons |
 | Window view | in flight | Three windows, 3D wing with winglet, strobe and nav light, wall glow, moon with phase, sea glitter, cloud layers, towns over land, cabin lighting, bank and pitch, turbulence shake |
 | Landing scene | overlay | Descent through cloud, touchdown bounce and tyre smoke, rollout; skip |
 | Arrival | `#/arrival/:id` | Report facts, route chart with track and hold markers, task status, remarks, stamp thud with ink splash, achievements and tier cards, layover or journey card |
-| Layover | `#/layover` | Break timer ring, flap board, journey itinerary, Board leg N, auto-start, End journey |
+| Layover | `#/layover` | Break timer ring, flap board, Pomodoro itinerary, Board focus N, auto-start, End Pomodoro; after the long break Go again or Finish |
 | Logbook | `#/logbook` | Filters, journey groups, pass viewer, track panel with Replay |
 | Passport | `#/passport` | Stamps by country, totals |
 | Stats | `#/stats` (S) | Membership card and tier ladder, totals, last 14 days, by tag, 12 month heatmap, routes map, time of day, passport by continent, achievements grid; card previews |
-| Settings | `#/settings` | Passenger, Focus (goal, default duration, booking mode, pre-departure check), Journeys, Display (theme, units, clock, graphics quality, reduce motion, scenes), Sound (switch, mixer, test chime), Distraction guard (strictness, minutes), Tags, Shortcuts, Your data (export, import, reset) |
+| Settings | `#/settings` | Passenger, Focus (goal, default duration, pre-departure check), Pomodoro (auto-start), Check for updates (desktop), Display (theme, units, clock, graphics quality, reduce motion, scenes), Sound (switch, mixer, test chime), Distraction guard (strictness, minutes), Tags, Shortcuts, Your data (export, import, reset) |
 | Glass lab | `?lab=1` | Hidden design page |
 
 ## Shortcuts

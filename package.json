@@ -1,7 +1,7 @@
 {
   "name": "skyfocus",
   "productName": "SkyFocus",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A flight-themed focus timer. Every focus session is a flight between real airports.",
   "author": "Carlos",
   "license": "UNLICENSED",
@@ -9,7 +9,8 @@
   "main": "desktop/main.js",
   "scripts": {
     "desktop": "electron .",
-    "dist": "electron-builder --win portable nsis --x64"
+    "dist": "electron-builder --win portable nsis --x64 --publish never",
+    "release": "electron-builder --win portable nsis --x64 --publish always"
   },
   "devDependencies": {
     "electron": "44.5.1",
@@ -72,6 +73,21 @@
     "electronLanguages": [
       "en-US",
       "en-GB"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "carl-d1",
+        "repo": "SkyFocus",
+        "releaseType": "release"
+      }
     ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/carl-d1/SkyFocus.git"
   }
 }

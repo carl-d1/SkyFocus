@@ -93,6 +93,67 @@
     if (first) setTimeout(function () { if (SF.store.state.flights.length) D.firstRunDone(); else offerImport(); }, 800);
   });
 
+  /* ---------- updates ----------
+     A popup when a new version is out: Download, then Restart to update. It waits while a flight or a
+     break is running and appears once nothing is in progress. */
+  var U = D.updates, upd = { info: null, ready: false, shownFor: null, asked: false, modal: null };
+  function busy() { var S = SF.store.state; return !!((S.activeFlight && S.activeFlight.started) || S.layover); }
+  function notesHTML(info) {
+    var t = String((info && info.notes) || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return t ? '<p class="muted">' + SF.esc(t.slice(0, 400)) + "</p>" : "";
+  }
+  function closeModal() { if (upd.modal) { upd.modal.close(true); upd.modal = null; } }
+  function offer() {
+    if (!upd.info || busy() || document.querySelector(".modal-wrap")) return;
+    var key = upd.info.version + (upd.ready ? "r" : "a");
+    if (upd.shownFor === key) return;
+    upd.shownFor = key;
+    if (upd.ready) {
+      upd.modal = ui.modal({
+        title: "Update ready", cls: "modal-sm",
+        body: "<p>SkyFocus " + SF.esc(upd.info.version) + " is downloaded. Restart to finish updating, or it installs the next time you quit.</p>",
+        actions: [{ label: "Later" }, { label: "Restart now", primary: true, icon: "refresh", onClick: function () { U.install(); } }],
+        onDestroy: function () { upd.modal = null; }
+      });
+      return;
+    }
+    var body = ui.h("<div><p>SkyFocus " + SF.esc(upd.info.version) + " is available. You have " + SF.esc(upd.info.current) + ".</p>" + notesHTML(upd.info) +
+      '<div class="upd-bar" hidden><i></i></div><p class="small-print upd-msg" hidden></p></div>');
+    upd.modal = ui.modal({
+      title: "Update available", cls: "modal-sm", body: body,
+      actions: [{ label: "Later" }, { label: upd.info.portable ? "Open download page" : "Download", primary: true, icon: "download", onClick: function (m) {
+        U.download();
+        if (upd.info.portable) return;
+        body.querySelector(".upd-bar").hidden = false;
+        var msg = body.querySelector(".upd-msg"); msg.hidden = false; msg.textContent = "Downloading...";
+        m.el.querySelectorAll(".modal-actions .btn").forEach(function (b) { b.disabled = true; });
+        return false;
+      } }],
+      onDestroy: function () { upd.modal = null; }
+    });
+  }
+  if (U) {
+    U.on(function (kind, d) {
+      if (kind === "available") { upd.info = d; offer(); }
+      else if (kind === "progress" && upd.modal) {
+        var bar = upd.modal.el.querySelector(".upd-bar i"), pm = upd.modal.el.querySelector(".upd-msg");
+        if (bar) bar.style.width = d.percent + "%";
+        if (pm) pm.textContent = "Downloading... " + d.percent + "%";
+      }
+      else if (kind === "ready") { upd.ready = true; upd.info = d || upd.info; closeModal(); if (upd.asked) upd.shownFor = null; upd.asked = false; offer(); }
+      else if (kind === "none" && upd.asked) { upd.asked = false; ui.toast(d && d.unavailable ? "Updates work in the installed app." : "SkyFocus " + d.current + " is the latest version.", "check"); }
+      else if (kind === "error" && upd.asked) { upd.asked = false; ui.toast("Could not check for updates.", "alert"); }
+      else if (kind === "error" && upd.modal && !upd.ready) {
+        var em = upd.modal.el.querySelector(".upd-msg");
+        if (em) em.textContent = "Download failed. Try again later.";
+        upd.modal.el.querySelectorAll(".modal-actions .btn").forEach(function (b) { b.disabled = false; });
+      }
+    });
+    // a popup put off by a flight or a break appears once it is over
+    setInterval(offer, 5000);
+    SF.checkForUpdates = function () { upd.asked = true; upd.shownFor = null; U.check(); };
+  }
+
   /* ---------- presence for the distraction guard ----------
      visible: the main window is on screen, or the pill is. focused: SkyFocus or its pill is the
      active app. In airplane mode leaving focus counts as turbulence; otherwise only leaving view. */

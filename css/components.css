@@ -197,6 +197,8 @@ input.short { width: 64px !important; }
    AIRPORT PICKER
    ========================================================= */
 .ap-wrap { position: relative; }
+.upd-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden; margin-top: 12px; }
+.upd-bar i { display: block; height: 100%; width: 0; background: var(--signal); transition: width .3s; }
 .ap-list {
   position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + var(--s-1)); margin: 0; padding: var(--s-1); list-style: none;
   max-height: 272px; overflow-y: auto; border-radius: var(--r-glass-sm);
