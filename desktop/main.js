@@ -512,7 +512,7 @@ function setupUpdates() {
   if (!allowed) return;
   try { updater = require("electron-updater").autoUpdater; } catch (e) { diag("updater unavailable: " + e.message); return; }
   updater.autoDownload = false;
-  updater.autoInstallOnAppQuit = !PORTABLE;
+  updater.autoInstallOnAppQuit = !PORTABLE && !process.env.SKYFOCUS_UPDATE_TEST;   // a test run never installs
   // test hook: a local folder served over http stands in for GitHub Releases
   if (process.env.SKYFOCUS_UPDATE_FEED) updater.setFeedURL({ provider: "generic", url: process.env.SKYFOCUS_UPDATE_FEED });
   updater.on("update-available", (info) => {
