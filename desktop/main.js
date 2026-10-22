@@ -513,6 +513,8 @@ function setupUpdates() {
   try { updater = require("electron-updater").autoUpdater; } catch (e) { diag("updater unavailable: " + e.message); return; }
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = !PORTABLE;
+  // test hook: a local folder served over http stands in for GitHub Releases
+  if (process.env.SKYFOCUS_UPDATE_FEED) updater.setFeedURL({ provider: "generic", url: process.env.SKYFOCUS_UPDATE_FEED });
   updater.on("update-available", (info) => {
     updateInfo = { version: info.version, notes: typeof info.releaseNotes === "string" ? info.releaseNotes : "", current: app.getVersion(), portable: PORTABLE };
     toPage("update:available", updateInfo);

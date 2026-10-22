@@ -8,9 +8,6 @@ desktop.ini
 # Local backups exported from the app
 skyfocus-backup-*.json
 
-# Local tooling
-.claude/
-
 # Desktop build
 node_modules/
 dist/
