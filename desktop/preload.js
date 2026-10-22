@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld("skyfocusDesktop", {
   // app data, kept in a file the main process writes at once
   storage: {
     load: () => ipcRenderer.sendSync("data:load"),
-    save: (text) => ipcRenderer.send("data:save", String(text))
+    save: (text) => ipcRenderer.send("data:save", String(text)),
+    note: (line) => ipcRenderer.send("data:note", String(line))
   }
 });

@@ -38,16 +38,27 @@
   SF.storage = {
     KEY: KEY,
     available: available || !!file,
+    // Desktop: the file and the localStorage copy are both read and the one saved most recently wins
+    // (the file on a tie), so a session that could not reach the file never loses to an older file.
     load: function () {
-      var raw = null;
-      if (file) { try { raw = file.load(); } catch (e) { raw = null; } }
-      if (!raw) raw = read(KEY);
-      if (!raw) return null;
-      try { return JSON.parse(raw); } catch (e) { return null; }
+      var data = null;
+      function parse(t) { try { return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+      if (file) {
+        var fromFile = null;
+        try { fromFile = parse(file.load()); } catch (e) { fromFile = null; }
+        var fromLocal = parse(read(KEY));
+        data = fromFile;
+        if (fromLocal && (!fromFile || (fromLocal.savedAt || 0) > (fromFile.savedAt || 0))) {
+          data = fromLocal;
+          if (file.note) try { file.note(fromFile ? "localStorage copy is newer than the file, using it" : "no data file, using the localStorage copy"); } catch (e) { /* no log */ }
+        }
+      } else data = parse(read(KEY));
+      if (data) delete data.savedAt;
+      return data;
     },
     save: function (obj) {
       try {
-        var text = JSON.stringify(obj);
+        var text = JSON.stringify(file ? Object.assign({}, obj, { savedAt: Date.now() }) : obj);
         if (!file) return write(KEY, text);
         file.save(text);
         // the backup copy in localStorage waits for an idle moment; the newest text wins

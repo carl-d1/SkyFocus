@@ -376,19 +376,42 @@ ipcMain.handle("data:backup", (e, json) => {
 });
 // app data file: written atomically (temp file, then rename) the moment the app saves
 const DATA_FILE = () => path.join(app.getPath("userData"), "skyfocus-data.json");
+// The app page, recognised by its address (any window showing index.html, never the pill), so the data
+// file is never refused because the sender is not the exact window object the main process expected.
+function fromApp(e) {
+  if (pillWin && !pillWin.isDestroyed() && e.sender === pillWin.webContents) return false;
+  const f = e.senderFrame;
+  return !!f && f.url.startsWith(ORIGIN + "/index.html");
+}
+// A short log of data file problems, kept next to the data (at most about 64 KB).
+function diag(line) {
+  try {
+    const f = path.join(app.getPath("userData"), "skyfocus-diag.log");
+    try { if (fs.statSync(f).size > 64000) fs.renameSync(f, f + ".old"); } catch (err) { /* no log yet */ }
+    fs.appendFileSync(f, new Date().toISOString() + " " + line + require("os").EOL);
+  } catch (err) { /* nowhere to write */ }
+}
+function senderInfo(e) {
+  return "sender " + e.sender.id + " win " + (win && !win.isDestroyed() ? win.webContents.id : "none") + " url " + (e.senderFrame ? e.senderFrame.url : "?");
+}
 ipcMain.on("data:load", (e) => {
-  if (!fromMain(e)) { e.returnValue = null; return; }
-  try { e.returnValue = fs.readFileSync(DATA_FILE(), "utf8") || null; } catch (err) { e.returnValue = null; }
+  if (!fromApp(e)) { diag("load refused: " + senderInfo(e)); e.returnValue = null; return; }
+  if (!fromMain(e)) diag("load from a window other than the main one: " + senderInfo(e));
+  try { e.returnValue = fs.readFileSync(DATA_FILE(), "utf8") || null; }
+  catch (err) { if (err.code !== "ENOENT") diag("load failed: " + err.code + " " + err.message); e.returnValue = null; }
 });
+let saveRefusals = 0;
 ipcMain.on("data:save", (e, text) => {
-  if (!fromMain(e) || typeof text !== "string" || text.length > 50e6) return;
+  if (!fromApp(e)) { if (saveRefusals++ < 3) diag("save refused: " + senderInfo(e)); return; }
+  if (typeof text !== "string" || text.length > 50e6) return;
   try {
     if (!text) { fs.rmSync(DATA_FILE(), { force: true }); return; }
     const tmp = DATA_FILE() + ".tmp";
     fs.writeFileSync(tmp, text);
     fs.renameSync(tmp, DATA_FILE());
-  } catch (err) { /* disk full or read-only: localStorage still has a copy */ }
+  } catch (err) { diag("save failed: " + err.code + " " + err.message); /* localStorage still has a copy */ }
 });
+ipcMain.on("data:note", (e, line) => { if (fromApp(e) && typeof line === "string") diag("page: " + line.slice(0, 300)); });
 // YPT link: two MacroDroid webhook URLs, kept here and never in the app data, so exports and backups
 // cannot carry them. The page asks for "start" or "stop"; the request runs here, outside the page CSP.
 function yptLink() { return Object.assign({ startUrl: "", stopUrl: "", last: "stop" }, state.ypt); }
